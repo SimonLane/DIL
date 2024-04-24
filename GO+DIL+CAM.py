@@ -75,7 +75,9 @@ def set_stage_triggers(axis, step):
     GO.write(bytes("TO %s%s;\n" %(axis,float(step)), codec))
     GO.write(bytes("TI %s%s;\n" %(axis,float(step)), codec))
         
-
+def cam_settings(exp=None,bin_=None):
+    if exp!=None:   CAM.set_attribute_value("EXPOSURE TIME", exp)
+    if bin_!=None:  CAM.set_attribute_value("BINNING", bin_)
 # =============================================================================
 # SCRIPT
 # =============================================================================
@@ -83,6 +85,11 @@ stage_error = False
 # SETUP 
 GO = serial.Serial(port=GO_COM, baudrate=115200, timeout=0.2)
 DIL = serial.Serial(port=DIL_COM, baudrate=115200, timeout=0.2)
+print('n cameras:', DCAM.get_cameras_number())
+CAM = DCAM.DCAMCamera()
+
+cam_settings(exp=0.1, bin_=1, trigger='hardware')
+CAM.setup_acquisition(mode="sequence", nframes = nZ)
 
 
 # move to start position. Perform z-stack centered around current position
@@ -92,36 +99,35 @@ print('Stage start position:', SPz, 'um')
 
 go_to_position(z=SPz + (((nZ-1)*sZ)/-2.0)) # start position minus half of the range
 
-# poll for stage movement
-while(True):
-    sm = stage_movement('z')
-    if sm == 0: break  #stage stationary
-    if sm == 2: stage_error = True; break  #error
-    time.sleep(0.01)
-    
-if not stage_error:
-    # set up stage triggers
-    set_stage_triggers('z', sZ)  
+# delay for stage movement
+while(stage_movement('z')==1): pass
     
     
-    # Activate Z-step on DIL controller
-    for i in range(nZ):
-        print(i, get_position('z'))
-        DIL.write(b"/Z;\r")
-        while(stage_movement('z')==1): pass
-            
+# Activate Z-step on DIL controller
+for i in range(nZ):
+    print(i, get_position('z'))
+    #trigger image 
+    
+    # get image
+    CAM.wait_for_frame()
+    frame = CAM.read_oldest_image()
+    # advance stage
+    DIL.write(b"/Z;\r")
+    while(stage_movement('z')==1): pass
         
     
-    # # poll camera for images
-    # # start timer
-    
-    # # return camera to start position
-    go_to_position(z=SPz, x=100, y=100)
-    while(stage_movement('z')==1): pass
-    print('return position:', get_position('z'))
+
+# # poll camera for images
+# # start timer
+
+# # return camera to start position
+go_to_position(z=SPz, x=100, y=100)
+while(stage_movement('z')==1): pass
+print('return position:', get_position('z'))
 # =============================================================================
 # close connections
 # =============================================================================
 
 GO.close()
 DIL.close()
+CAM.close()

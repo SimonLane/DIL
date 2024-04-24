@@ -17,22 +17,18 @@ sZ          = 10    #slice separation (micrometers)
 exp         = 100   #camera exposure time (ms)
 
 # =============================================================================
-GO_COM = 'COM3'
-DIL_COM = 'COM5'
-FILTER_COM = 'COM6'
+GO_COM = 'COM4'
 codec = 'utf8'
 # =============================================================================
 #  IMPORTS
 # =============================================================================
 
-from pylablib.devices import DCAM
 import serial, time
 
 # =============================================================================
 # FUNCTIONS
 # =============================================================================
 
-#¬¬¬¬¬STAGE FUNCTIONS¬¬¬¬¬¬¬#
 def clear_buffer():
     print('clear buffer', GO.inWaiting(), 'bytes')
     while GO.inWaiting() > 0: GO.read()
@@ -55,9 +51,7 @@ def stage_movement(axis): #tests stage to make sure movement is complete
 
 def get_position(axis):
     GO.write(bytes("RP%s\n" %axis, codec))
-    ret = GO.readline()
-    print(ret)
-    return float(ret.decode(codec).split(axis)[1][:-1])
+    return float(GO.readline().decode(codec).split(axis)[1][:-1])
 
 def go_to_position(x=None, y=None, z=None):
     string = "GT"
@@ -79,34 +73,21 @@ def go_to_position(x=None, y=None, z=None):
 def set_stage_triggers(axis, step):
     GO.write(bytes("TO %s%s;\n" %(axis,float(step)), codec))
     GO.write(bytes("TI %s%s;\n" %(axis,float(step)), codec))
-    
-#¬¬¬¬¬DIL FUNCTIONS¬¬¬¬¬¬¬#
-
-
+        
 
 # =============================================================================
 # SCRIPT
 # =============================================================================
-#CAMERA connection
-# print('n cameras:', DCAM.get_cameras_number())
-# cam = DCAM.DCAMCamera()
-
-GO = serial.Serial(port=GO_COM, baudrate=115200, timeout=0.2)
-DIL = serial.Serial(port=DIL_COM, baudrate=115200, timeout=0.2)
-
-# SETUP - CAMERA
-# allocate buffer
-# set mode, binning, exposure
-# set up trigger
-
-
-# SETUP - STAGE
-
 stage_error = False
+# SETUP - STAGE
+#STAGE serial connection
+GO = serial.Serial(port=GO_COM, baudrate=115200, timeout=0.2)
+# move to start position. Perform z-stack centered around current position
+
 #get start position
 SPz = get_position('z')
 print('Stage start position:', SPz, 'um')
-# move to start position. Perform z-stack centered around current position
+
 go_to_position(z=SPz + (((nZ-1)*sZ)/-2.0)) # start position minus half of the range
 
 # poll for stage movement
@@ -128,14 +109,8 @@ if not stage_error:
     
     # # return camera to start position
     go_to_position(z=SPz, x=100, y=100)
-# Activate Z-scan on DIL controller
-# DIL.write(b"/Stack.%s.%s.%s\r" %(nZ, sZ, exp))
-
-# poll camera for images
-# start timer
 # =============================================================================
 # close connections
 # =============================================================================
-# cam.close()
-DIL.close()
+
 GO.close()

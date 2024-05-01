@@ -1,0 +1,36 @@
+Hamamatsu camera properties lookup
+
+
+
+sensor_mode {'AREA': 1, 'PROGRESSIVE': 12, 'SPLIT VIEW': 14, 'DUAL LIGHT SHEET': 16}
+readout_direction {'DIVERGE': 5}
+colortype {'B/W': 1}
+trigger_source {'INTERNAL': 1, 'EXTERNAL': 2, 'SOFTWARE': 3, 'MASTER PULSE': 4}
+trigger_mode {'NORMAL': 1, 'START': 6}
+trigger_active {'EDGE': 1, 'LEVEL': 2, 'SYNCREADOUT': 3}
+trigger_global_exposure {'DELAYED': 3, 'GLOBAL RESET': 5}
+trigger_polarity {'NEGATIVE': 1, 'POSITIVE': 2}
+trigger_connector {'BNC': 2}
+internal_trigger_handling {'SHORTER EXPOSURE TIME': 1}
+sensor_cooler_status {'OFF': 1, 'READY': 2, 'BUSY': 3}
+defect_correct_mode {'OFF': 1, 'ON': 2}
+hot_pixel_correct_level {'STANDARD': 1, 'MINIMUM': 2, 'AGGRESSIVE': 3}
+binning {'1x1': 1, '2x2': 2, '4x4': 4}
+subarray_mode {'OFF': 1, 'ON': 2}
+intensity_lut_mode {'THROUGH': 1, 'PAGE': 2}
+intensity_lut_page {'1': 1}
+extraction_mode {'OFF': 1}
+timing_exposure {'AFTER READOUT': 1, 'ROLLING': 3}
+framebundle_mode {'OFF': 1}
+image_pixel_type {'MONO8': 1, 'MONO16': 2, 'MONO12': 3}
+buffer_pixel_type {'MONO8': 1, 'MONO16': 2, 'MONO12': 3}
+output_trigger_source[0] {'READOUT END': 2, 'VSYNC': 3, 'TRIGGER': 6}
+output_trigger_polarity[0] {'NEGATIVE': 1, 'POSITIVE': 2}
+output_trigger_active[0] {'EDGE': 1}
+output_trigger_kind[0] {'LOW': 1, 'EXPOSURE': 2, 'PROGRAMABLE': 3, 'TRIGGER READY': 4, 'HIGH': 5}
+output_trigger_base_sensor[0] {'VIEW 1': 1, 'VIEW 2': 2, 'ANY VIEW': 15, 'ALL VIEWS': 16}
+master_pulse_mode {'CONTINUOUS': 1, 'START': 2, 'BURST': 3}
+master_pulse_trigger_source {'EXTERNAL': 1, 'SOFTWARE': 2}
+system_alive {'OFFLINE': 1, 'ONLINE': 2}
+time_stamp_producer {'IMAGING DEVICE': 5}
+frame_stamp_producer {'IMAGING DEVICE': 5}

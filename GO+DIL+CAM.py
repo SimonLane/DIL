@@ -12,9 +12,10 @@ Created on Mon Apr 22 13:06:57 2024
 # PARAMETERS
 # =============================================================================
 
-nZ          = 15    #Number of slices
-sZ          = 1    #slice separation (micrometers)
+nZ          = 100    #Number of slices
+sZ          = 0.1    #slice separation (micrometers)
 exp         = 100   #camera exposure time (ms)
+save_location = "C:\\Users\\sil1r12\\Documents\\Data\\"
 
 # =============================================================================
 GO_COM = 'COM4'
@@ -24,7 +25,8 @@ codec = 'utf8'
 #  IMPORTS
 # =============================================================================
 from pylablib.devices import DCAM
-import serial, time
+import serial
+import imageio
 
 # =============================================================================
 # FUNCTIONS
@@ -72,12 +74,50 @@ def go_to_position(x=None, y=None, z=None):
     GO.write(bytes(string, "utf8"))
     
 def set_stage_triggers(axis, step):
-    GO.write(bytes("TO %s%s;\n" %(axis,float(step)), codec))
-    GO.write(bytes("TI %s%s;\n" %(axis,float(step)), codec))
+    print("TO %s%s;\r\n" %(axis,float(step)))
+    print("TI %s%s;\r\n" %(axis,float(step)))
+    GO.write(bytes("TO %s%s;\r\n" %(axis,float(step)), codec))
+    GO.write(bytes("TI %s%s;\r\n" %(axis,float(step)), codec))
         
-def cam_settings(exp=None,bin_=None):
-    if exp!=None:   CAM.set_attribute_value("EXPOSURE TIME", exp)
-    if bin_!=None:  CAM.set_attribute_value("BINNING", bin_)
+def cam_settings(exp=None,bin_=None, bits=None, trigger=None):
+    if exp!=None:       CAM.set_attribute_value("EXPOSURE TIME", exp)
+    if bin_!=None:      CAM.set_attribute_value("BINNING", bin_)
+    if bits!=None:      CAM.set_attribute_value("BIT_PER_CHANNEL", bits)
+    if trigger!=None:   trigger_mode(trigger)
+    
+def trigger_mode(mode):
+    if mode == 'software': #software
+        CAM.set_attribute_value('TRIGGER SOURCE', 1)
+        CAM.set_attribute_value("TRIGGER POLARITY", 2)
+        CAM.set_attribute_value("TRIGGER GLOBAL EXPOSURE", 3)
+        CAM.set_attribute_value('TRIGGER DELAY', 0.0)
+        CAM.set_attribute_value('OUTPUT TRIGGER KIND[0]', 4)
+        
+    if mode == 'hardware': #hardware
+       #INPUT TRIGGER
+       CAM.set_attribute_value('TRIGGER SOURCE', 2)            # 1: Internal;  2: External;    3: Software;    4: Master Pulse;
+       CAM.set_attribute_value('trigger_mode', 1)              # 1: Normal;    6: Start;
+       CAM.set_attribute_value('trigger_polarity', 2)          # 1: Negative;  2: Positive;
+       CAM.set_attribute_value('trigger_active', 2)            # 1: Edge;      2: Level;       3: SyncReadout
+       CAM.set_attribute_value('trigger_global_exposure', 3)   # 3: Delayed;   5: Global Reset;
+
+       # CAMERA settings
+       CAM.set_attribute_value('sensor_mode', 1)               # 1: Area;      12: Progressive;    14: Split View;     16: Dual Lightsheet;
+       #CAM.set_attribute_value('timing_exposure', 1)          # 1: After Readout;     3: Rolling;
+       CAM.set_attribute_value('image_pixel_type',2)           # 'MONO8': 1, 'MONO16': 2, 'MONO12': 3
+       CAM.set_attribute_value('buffer_pixel_type',2)          # 'MONO8': 1, 'MONO16': 2, 'MONO12': 3
+
+       #OUTPUT settings
+       CAM.set_attribute_value('output_trigger_source[0]', 2)      #Start on input trigger (6), start on readout (2)
+       CAM.set_attribute_value('output_trigger_polarity[0]', 2)    #Positive
+       CAM.set_attribute_value('output_trigger_kind[0]', 3)        #Exposure
+       CAM.set_attribute_value('output_trigger_base_sensor[0]', 16) # All views???
+       CAM.set_attribute_value('output_trigger_active[0]', 1)      # edge
+       CAM.set_attribute_value('output_trigger_delay[0]', 0)      # edge
+       CAM.set_attribute_value('output_trigger_period[0]', 0.001)      # edge
+    
+    
+    
 # =============================================================================
 # SCRIPT
 # =============================================================================
@@ -88,40 +128,41 @@ DIL = serial.Serial(port=DIL_COM, baudrate=115200, timeout=0.2)
 print('n cameras:', DCAM.get_cameras_number())
 CAM = DCAM.DCAMCamera()
 
-cam_settings(exp=0.1, bin_=1, trigger='hardware')
+cam_settings(exp=exp, bin_=1, trigger='hardware')
+
 CAM.setup_acquisition(mode="sequence", nframes = nZ)
 
 
 # move to start position. Perform z-stack centered around current position
 #get start position
+SPx = get_position('x')
+SPy = get_position('y')
 SPz = get_position('z')
-print('Stage start position:', SPz, 'um')
+print('Stage start position:', SPx, SPy, SPz,'um')
 
 go_to_position(z=SPz + (((nZ-1)*sZ)/-2.0)) # start position minus half of the range
-
+set_stage_triggers('z', sZ)
 # delay for stage movement
 while(stage_movement('z')==1): pass
     
-    
-# Activate Z-step on DIL controller
-for i in range(nZ):
-    print(i, get_position('z'))
-    #trigger image 
-    
-    # get image
+CAM.start_acquisition()    
+
+DIL.write(bytes("/Stack.%s.%s.%s;\r" %(nZ,sZ,exp), codec))
+
+for i in range(nZ):    
     CAM.wait_for_frame()
     frame = CAM.read_oldest_image()
-    # advance stage
-    DIL.write(b"/Z;\r")
-    while(stage_movement('z')==1): pass
-        
+    imageio.imwrite('%sz%s.tif' %(save_location,i), frame)
+    print(i) 
     
+
+CAM.stop_acquisition()
 
 # # poll camera for images
 # # start timer
 
 # # return camera to start position
-go_to_position(z=SPz, x=100, y=100)
+go_to_position(z=SPz, x=SPx, y=SPy)
 while(stage_movement('z')==1): pass
 print('return position:', get_position('z'))
 # =============================================================================

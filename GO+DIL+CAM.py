@@ -12,9 +12,9 @@ Created on Mon Apr 22 13:06:57 2024
 # PARAMETERS
 # =============================================================================
 
-nZ          = 5    #Number of slices
-sZ          = 1    #slice separation (micrometers)
-exp         = 100   #camera exposure time (ms)
+nZ          = 400    #Number of slices
+sZ          = 0.05   #slice separation (micrometers)
+exp         = 50   #camera exposure time (ms)
 save_location = "C:\\Users\\sil1r12\\Documents\\Data\\"
 
 # =============================================================================
@@ -134,8 +134,6 @@ cam_settings(exp=exp, bin_=1, trigger='hardware')
 
 CAM.setup_acquisition(mode="sequence", nframes = nZ)
 
-go_to_position(z=0, x=0, y=0)
-time.sleep(0.1)
 
 # move to start position. Perform z-stack centered around current position
 #get start position
@@ -153,15 +151,26 @@ CAM.start_acquisition()
 while(DIL.inWaiting()):
     print("DIL", DIL.readline())
 
-DIL.write(bytes("/Stack.%s.%s.%s;\r" %(nZ,sZ,exp), codec))
+DIL.write(bytes("/Stack.%s.%s;\r" %(nZ,exp), codec))
 
-for i in range(nZ):    
+verbose = False
+
+for i in range(nZ):
+    if(verbose): print("_______________") 
+    print(i)  
+    t0 = time.time()
     CAM.wait_for_frame()
+    if(verbose): print("wait for imaage: ", time.time() - t0, "(s)")
+    t0 = time.time()
     frame = CAM.read_oldest_image()
+    if(verbose): print("get frame: ", time.time() - t0, "(s)")
+    t0 = time.time()
     imageio.imwrite('%sz%s.tif' %(save_location,i), frame)
-    print(i, "stage:", get_position('z')) 
+    if(verbose): print("save frame: ", time.time() - t0, "(s)")
+    t0 = time.time()
     while(DIL.inWaiting()):
         print("DIL", DIL.readline())
+    if(verbose): print("check serial: ", time.time() - t0, "(s)")
     
 
 CAM.stop_acquisition()

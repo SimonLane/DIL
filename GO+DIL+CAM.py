@@ -12,8 +12,8 @@ Created on Mon Apr 22 13:06:57 2024
 # PARAMETERS
 # =============================================================================
 
-nZ          = 100    #Number of slices
-sZ          = 0.1    #slice separation (micrometers)
+nZ          = 5    #Number of slices
+sZ          = 1    #slice separation (micrometers)
 exp         = 100   #camera exposure time (ms)
 save_location = "C:\\Users\\sil1r12\\Documents\\Data\\"
 
@@ -25,7 +25,7 @@ codec = 'utf8'
 #  IMPORTS
 # =============================================================================
 from pylablib.devices import DCAM
-import serial
+import serial, time
 import imageio
 
 # =============================================================================
@@ -108,13 +108,15 @@ def trigger_mode(mode):
        CAM.set_attribute_value('buffer_pixel_type',2)          # 'MONO8': 1, 'MONO16': 2, 'MONO12': 3
 
        #OUTPUT settings
+       
+       # oscilloscope shows that kind needs to be 'trigger ready'
        CAM.set_attribute_value('output_trigger_source[0]', 2)      #Start on input trigger (6), start on readout (2)
        CAM.set_attribute_value('output_trigger_polarity[0]', 2)    #Positive
-       CAM.set_attribute_value('output_trigger_kind[0]', 3)        #Exposure
+       CAM.set_attribute_value('output_trigger_kind[0]', 4)        #trigger ready = 4
        CAM.set_attribute_value('output_trigger_base_sensor[0]', 16) # All views???
        CAM.set_attribute_value('output_trigger_active[0]', 1)      # edge
-       CAM.set_attribute_value('output_trigger_delay[0]', 0)      # edge
-       CAM.set_attribute_value('output_trigger_period[0]', 0.001)      # edge
+       CAM.set_attribute_value('output_trigger_delay[0]', 0)      # 
+       CAM.set_attribute_value('output_trigger_period[0]', 0.001)      # 
     
     
     
@@ -132,6 +134,8 @@ cam_settings(exp=exp, bin_=1, trigger='hardware')
 
 CAM.setup_acquisition(mode="sequence", nframes = nZ)
 
+go_to_position(z=0, x=0, y=0)
+time.sleep(0.1)
 
 # move to start position. Perform z-stack centered around current position
 #get start position
@@ -146,6 +150,8 @@ set_stage_triggers('z', sZ)
 while(stage_movement('z')==1): pass
     
 CAM.start_acquisition()    
+while(DIL.inWaiting()):
+    print("DIL", DIL.readline())
 
 DIL.write(bytes("/Stack.%s.%s.%s;\r" %(nZ,sZ,exp), codec))
 
@@ -153,7 +159,9 @@ for i in range(nZ):
     CAM.wait_for_frame()
     frame = CAM.read_oldest_image()
     imageio.imwrite('%sz%s.tif' %(save_location,i), frame)
-    print(i) 
+    print(i, "stage:", get_position('z')) 
+    while(DIL.inWaiting()):
+        print("DIL", DIL.readline())
     
 
 CAM.stop_acquisition()

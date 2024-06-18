@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Apr 22 13:06:57 2024
+Created on Sun May 05 16:06:51 2024
 @author: sil1r12
 
 # =============================================================================
-# BASIC Z-Stack SCRIPT
+# Z-Stack SCRIPT
++ folder management
 # =============================================================================
 """
 
@@ -12,10 +13,15 @@ Created on Mon Apr 22 13:06:57 2024
 # PARAMETERS
 # =============================================================================
 
-nZ          = 400    #Number of slices
-sZ          = 1   #slice separation (micrometers)
-exp         = 250   #camera exposure time (ms)
-save_location = "C:\\Users\\sil1r12\\Documents\\Data\\"
+nZ          = 750    #Number of slices
+sZ          = 0.05   #slice separation (micrometers)
+exp         = 35   #camera exposure time (ms)
+root_location = r"C:/Users/sil1r12/Documents/Data/"
+name        = "488nm_oxxius 500LP 2um 500nm bead Both"
+# name        = "488nm 500LP-60"
+# name        = "561nm 600LP"
+
+verbose = False     #for debugging
 
 # =============================================================================
 GO_COM = 'COM4'
@@ -25,7 +31,7 @@ codec = 'utf8'
 #  IMPORTS
 # =============================================================================
 from pylablib.devices import DCAM
-import serial, time
+import serial, time, datetime, os
 import imageio
 
 # =============================================================================
@@ -85,14 +91,7 @@ def cam_settings(exp=None,bin_=None, bits=None, trigger=None):
     if bits!=None:      CAM.set_attribute_value("BIT_PER_CHANNEL", bits)
     if trigger!=None:   trigger_mode(trigger)
     
-def trigger_mode(mode):
-    if mode == 'software': #software
-        CAM.set_attribute_value('TRIGGER SOURCE', 1)
-        CAM.set_attribute_value("TRIGGER POLARITY", 2)
-        CAM.set_attribute_value("TRIGGER GLOBAL EXPOSURE", 3)
-        CAM.set_attribute_value('TRIGGER DELAY', 0.0)
-        CAM.set_attribute_value('OUTPUT TRIGGER KIND[0]', 4)
-        
+def trigger_mode(mode):        
     if mode == 'hardware': #hardware
        #INPUT TRIGGER
        CAM.set_attribute_value('TRIGGER SOURCE', 2)            # 1: Internal;  2: External;    3: Software;    4: Master Pulse;
@@ -118,6 +117,18 @@ def trigger_mode(mode):
        CAM.set_attribute_value('output_trigger_delay[0]', 0)      # 
        CAM.set_attribute_value('output_trigger_period[0]', 0.001)      # 
     
+def new_folder(root, sZ, Exp, name):
+    now = datetime.datetime.now()
+    units = 'um'
+    if(sZ<1): #step size is sub-micron, change units to nm
+        sZ = sZ*1000
+        units = 'nm'
+    folder = r"%s%s-%s-%s %s_%s_%s (%s%s, %sms) - %s" %(root,now.year, now.month, now.day,   
+                                                        now.hour,now.minute,now.second, 
+                                                        sZ,units, Exp, name)
+    os.makedirs(folder)
+
+    return folder
     
     
 # =============================================================================
@@ -134,6 +145,8 @@ cam_settings(exp=exp, bin_=1, trigger='hardware')
 
 CAM.setup_acquisition(mode="sequence", nframes = nZ)
 
+folder = new_folder(root_location,sZ,exp, name)
+print('Expt. saved to: ', folder)
 
 # move to start position. Perform z-stack centered around current position
 #get start position
@@ -145,7 +158,10 @@ print('Stage start position:', SPx, SPy, SPz,'um')
 go_to_position(z=SPz + (((nZ-1)*sZ)/-2.0)) # start position minus half of the range
 set_stage_triggers('z', sZ)
 # delay for stage movement
-while(stage_movement('z')==1): pass
+t0 = time.time()
+while(stage_movement('z')==1): 
+    if(time.time() > t0 + 2): break
+    pass
     
 CAM.start_acquisition()    
 while(DIL.inWaiting()):
@@ -153,7 +169,7 @@ while(DIL.inWaiting()):
 
 DIL.write(bytes("/Stack.%s.%s;\r" %(nZ,exp), codec))
 
-verbose = False
+verbose = True
 
 for i in range(nZ):
     if(verbose): print("_______________") 
@@ -165,18 +181,14 @@ for i in range(nZ):
     frame = CAM.read_oldest_image()
     if(verbose): print("get frame: ", time.time() - t0, "(s)")
     t0 = time.time()
-    imageio.imwrite('%sz%s.tif' %(save_location,i), frame)
+    imageio.imwrite('%s\\z%s.tif' %(folder,i), frame)
     if(verbose): print("save frame: ", time.time() - t0, "(s)")
     t0 = time.time()
     while(DIL.inWaiting()):
         print("DIL", DIL.readline())
     if(verbose): print("check serial: ", time.time() - t0, "(s)")
     
-
 CAM.stop_acquisition()
-
-# # poll camera for images
-# # start timer
 
 # # return camera to start position
 go_to_position(z=SPz, x=SPx, y=SPy)

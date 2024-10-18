@@ -69,6 +69,7 @@ void loop() {
 checkSerial();
 if(Scan > 0){
   if(micros() > prev_scan + Scan){
+
     sweep(Scan);
     }
   }
@@ -105,6 +106,8 @@ void checkSerial(){
    else if (serial_part == 6){command5 += rc; echo+=rc;}
  }
 }
+
+
 
 
 

@@ -13,19 +13,19 @@ Created on Sun May 05 16:06:51 2024
 # PARAMETERS
 # =============================================================================
 
-nZ          = 750    #Number of slices
-sZ          = 0.05   #slice separation (micrometers)
-exp         = 35   #camera exposure time (ms)
-root_location = r"C:/Users/sil1r12/Documents/Data/"
-name        = "488nm_oxxius 500LP 2um 500nm bead Both"
+nZ          = 250    #Number of slices
+sZ          = 0.5   #slice separation (micrometers)
+exp         = 5000   #camera exposure time (ms)
+root_location = r"D:/Light_Sheet_Images/Data/"
+name        = "810nm_MaiTai_BP450-40_Organoid_51-4_AgarCart2_1"
 # name        = "488nm 500LP-60"
 # name        = "561nm 600LP"
 
 verbose = False     #for debugging
 
 # =============================================================================
-GO_COM = 'COM4'
-DIL_COM = 'COM5'
+GO_COM = 'COM6'
+DIL_COM = 'COM7'
 codec = 'utf8'
 # =============================================================================
 #  IMPORTS

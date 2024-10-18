@@ -138,7 +138,7 @@ void trigger_camera(){
 }
 
            //number of z, z step size, exposure time
-void z_stack(uint16_t nZ, uint32_t sZ, uint32_t E){
+void z_stack(c){
   //initially set scanner to 0
   set_galvo(0);
   delay(2);

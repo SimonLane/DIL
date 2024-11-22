@@ -8,11 +8,9 @@ USB 3103 - Analog and Digital Write minimal working example
 from mcculw import ul
 from mcculw.device_info import DaqDeviceInfo
 from mcculw.enums import InterfaceType, DigitalIODirection
- 
 
 
-Dchannel = 2
-Achannel = 0
+
 
 # get board
 board_num = 0
@@ -36,9 +34,11 @@ port = next((port for port in dio_info.port_info if port.supports_output),None)
 # set digital ports as outputs
 ul.d_config_port(0,port.type, DigitalIODirection.OUT)
 
-ul.d_bit_out(board_num,port.type,Dchannel,0)  # set Dchannel high
+ul.d_bit_out(0,port.type,2, 0)  # set Dchannel high
 
-ul.a_out(board_num,Achannel,ao_info.supported_ranges[0], 65000)  #set analog channel
+ul.a_out(0,2,ao_info.supported_ranges[0], 10000)  #set analog channel
+
+
 
 ul.release_daq_device(board_num)
 

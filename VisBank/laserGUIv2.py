@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Dec 10 16:06:20 2021
+Created on Thu Nov 21 15:51:20 2024
 
 @author: sil1r12
 """
@@ -110,7 +110,7 @@ class Lasers(QtWidgets.QMainWindow):
         self.GUI_colour         = QtGui.QColor(75,75,75)
         self.GUI_font           = QtGui.QFont('Times',10)
         self.laserCalibration   = ''
-        self.address            = "D:/GitHub/DIL/VisBank/"
+        self.address            = "C:/Users/Ray Lee/Documents/GitHub/DIL/VisBank/"
         self.board_num          = 0
         self.initUI()
         self.connection         = False
@@ -141,7 +141,7 @@ class Lasers(QtWidgets.QMainWindow):
             ul.a_out(0,A_channel_number,self.ao_range,v) # send the 16-bit value for the DAC
             if(D_channel_number > 0):
                 if(v>0): ul.d_bit_out(0, self.port.type, D_channel_number, 1)
-            # print("setting %snm laser to %s" %(w,v))
+            print("setting %snm laser to %s" %(w,v))
             
     def shutter(self):
         if self.connection:

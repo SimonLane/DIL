@@ -110,7 +110,7 @@ class Lasers(QtWidgets.QMainWindow):
         self.GUI_colour         = QtGui.QColor(75,75,75)
         self.GUI_font           = QtGui.QFont('Times',10)
         self.laserCalibration   = ''
-        self.address            = "C:/Users/Ray Lee/Documents/GitHub/DIL/VisBank/"
+        self.address            = "C:/Local/GitHub/DIL/VisBank/"
         self.board_num          = 0
         self.initUI()
         self.connection         = False
@@ -254,21 +254,20 @@ class Lasers(QtWidgets.QMainWindow):
             if len(devices) == 0:
                 print('USB-3103 laser controller not found')
             else:
-                
-                ul.release_daq_device(board_num)
-                
+                # ul.release_daq_device(board_num)
+                print(ul)
                 # create connection 
                 ul.create_daq_device(board_num, devices[0])
+                print(2.5)
                 daq_dev_info = DaqDeviceInfo(board_num)
                 # setup analog
                 ao_info = daq_dev_info.get_ao_info()
                 self.ao_range = ao_info.supported_ranges[0]
-                
                 # setup digital
                 dio_info = daq_dev_info.get_dio_info()
                 self.port = next((port for port in dio_info.port_info if port.supports_output),None)
                 ul.d_config_port(0,self.port.type, DigitalIODirection.OUT)
-                
+                print('connected')
                 self.connectionStatus.setText('Connected')
                 self.connection = True
                 

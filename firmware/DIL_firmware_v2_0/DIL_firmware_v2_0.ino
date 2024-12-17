@@ -1,3 +1,7 @@
+// scanning and z-stacking working apart from stage feedback
+
+
+
 #include <Arduino.h>
 
 // Function prototypes
@@ -41,6 +45,10 @@ uint32_t exposure               = 0;        // keep track of camera exposure
 uint8_t cam_delay               = 0;        // trigger scanner this time after trigger camera
 const byte HALF_CLOCK_PERIOD    = 1;        // 2 uS of clock period 
 
+uint16_t g_steps_per_FOV        = 886;      // number of steps on the galvo that corresponds to the full FOV of the camera
+uint16_t g_enter_step           = 66;       // galvo step at which beam enters the camera FOV
+uint16_t g_exit_step            = 952;      // galvo step at which beam leaves the camera FOV
+
 void setup() {
   Serial.begin(115200);
   while (!Serial) {;}  // Wait for Serial to be ready
@@ -66,10 +74,14 @@ void setup() {
 
   pinMode(CamOut, OUTPUT);
   digitalWrite(CamOut, LOW);
+
+  pinMode(trigger_LED, OUTPUT);
+  digitalWrite(trigger_LED, LOW);
+  
   set_galvo(park);
 }
 
-void z_move_complete()  {stage_ready_flag = true; digitalWriteFast(trigger_LED, HIGH);}
+void z_move_complete()  {stage_ready_flag    = true; digitalWriteFast(trigger_LED, LOW);}
 void camera_ready()     {camera_ready_flag   = true;}
 
 void parseCommand(String command) {
@@ -112,10 +124,13 @@ void parseCommand(String command) {
     set_galvo(0);
     delay(20);
     //set up for z-stack
-    nZ          = values[0];
-    exposure    = values[1];
-    scanning    = false;
+    exposure    = values[0];
+    nZ          = values[1];
     z_stacking  = true;
+    Serial.print("entering z-stack mode, nZ: ");
+    Serial.print(nZ);
+    Serial.print("; exp: ");
+    Serial.println(exposure);
 
   } else if (word == "hello") {
     Serial.print("Dual Illumination Lightsheet, firmware v: ");Serial.println(firmware);
@@ -128,7 +143,7 @@ void parseCommand(String command) {
   
   } else if (word == "delay") {
     Serial.println("setting cam trigger delay");
-    cam_delay  = values[0];
+    cam_delay   = values[0];
   
   } else if (word == "stop") {
     Serial.println("stopping");
@@ -151,7 +166,7 @@ void parseCommand(String command) {
 void z_slice(uint32_t exposure){ //do a single slice within a z-stack, exposure in ms
 
   //calculate galvo step time
-  float s_t = exposure; //s_t: 10-bit DAC, spread over 1000/1024 of the DAC range /1000, but also converted to us, so *1000
+  float s_t = (exposure * 1000.0) / g_steps_per_FOV; //s_t: (us) exposure time spread over the numberof galvo steps in the camera  FOV 
 
   uint32_t prev_micros = 0;
   
@@ -161,27 +176,32 @@ void z_slice(uint32_t exposure){ //do a single slice within a z-stack, exposure 
   if(s_t < 1.0)                   {s_t = s_t * 4.0; s=4;  }
   uint32_t s_t_int = int(s_t);
 
-//need to start camera 87 microseconds beore i==12
-  float lines = (87.0 / exposure) + 1;
-  int cam_start = 12 - int(lines);
+//need to trigger camera 87 microseconds before g_start_step
+  float g_steps_for_cam = (87 / s_t) + 1; //how many galvo steps in 87us? (plus one to ensure rounding up)
+  int exposure_start = g_enter_step - int(g_steps_for_cam);
 
-  digitalWriteFast(CamOut, HIGH); camera_ready_flag = false;
-  delay(cam_delay);
-
-  for(int i=0;i<1024;i=i+s){
+  
+  digitalWriteFast(CamOut,LOW);
+  //SCAN
+  for(int g=0;g<1024;g=g+s){
+    if(g==exposure_start)     {digitalWriteFast(CamOut, HIGH); camera_ready_flag = false; }  // trigger camera ~ 87 us before beam enters FOV
     
     while(micros() < prev_micros + s_t_int){} //delay for step time
     prev_micros = micros();
-    set_galvo(i);
+    set_galvo(g);
+    
+    if(g==g_exit_step)        {digitalWriteFast(CamOut, LOW);}                              // end camera trigger pulse
+    
   }
-  digitalWriteFast(CamOut,LOW);
   
+  
+
   if(z_stacking){
     //start stage movement
     digitalWriteFast(Zo,HIGH);
     delayMicroseconds(100);
     digitalWriteFast(Zo,LOW);
-    stage_ready_flag = false; digitalWriteFast(trigger_LED, LOW);
+    stage_ready_flag = false; digitalWriteFast(trigger_LED, HIGH);
   }
   set_galvo(0);                     // return galvo to zero position ready for next scan
 }
@@ -208,18 +228,19 @@ void check_serial(){
 
 void loop() {
   check_serial();
-  if(z_stacking && stage_ready_flag && camera_ready_flag){    //enter when stage and camera flags are set
-     
+  if(z_stacking  && camera_ready_flag){    //enter when stage and camera flags are set
+     //&& stage_ready_flag
     z_slice(exposure);                                  // take a slice
     slice_counter++;
+    Serial.print("z:");Serial.println(slice_counter);
     if(slice_counter == nZ){                            // check if stack complete
-      z_stacking = false; 
-      slice_counter = 0;               // stop z-stacking
+      z_stacking = false;                               // stop z-stacking
+      slice_counter = 0;                                // reset slice counter
       set_galvo(park);
     }
   }
 
-  if(scanning && camera_ready_flag){                       // start next scan when camera finished readout
+  if(scanning && camera_ready_flag){                    // start next scan when camera finished readout
     z_slice(exposure);
   }
 

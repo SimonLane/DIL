@@ -13,19 +13,19 @@ Created on Sun May 05 16:06:51 2024
 # PARAMETERS
 # =============================================================================
 
-nZ          = 250    #Number of slices
+nZ          = 500    #Number of slices
 sZ          = 0.5   #slice separation (micrometers)
-exp         = 5000   #camera exposure time (ms)
+exp         = 1000   #camera exposure time (ms)
 root_location = r"D:/Light_Sheet_Images/Data/"
-name        = "810nm_MaiTai_BP450-40_Organoid_51-4_AgarCart2_1"
+name        = "561nm_VisBank_BP600-40_Organoid_51-4_AgarCart3_1"
 # name        = "488nm 500LP-60"
 # name        = "561nm 600LP"
 
 verbose = False     #for debugging
 
 # =============================================================================
-GO_COM = 'COM6'
-DIL_COM = 'COM7'
+GO_COM = 'COM7'
+DIL_COM = 'COM6'
 codec = 'utf8'
 # =============================================================================
 #  IMPORTS
@@ -43,20 +43,6 @@ def clear_buffer():
     while GO.inWaiting() > 0: GO.read()
     print('clear buffer', GO.inWaiting(), 'bytes')
     
-def stage_movement(axis): #tests stage to make sure movement is complete
-    #get stage status
-    GO.write(bytes("RS%s\n" %axis, codec))
-    Status = GO.readline()[1:]
-    # print("stage status raw:", Status)
-    Status = Status.decode(codec).split(axis)[1][0]
-    stage_OK = ["0","2","4"]
-    if(Status in stage_OK): return 0  #if stage is stationary
-    if(Status == "9"): 
-        GO.write(bytes("RE%s\n" %axis, codec))
-        Error = GO.readline().decode(codec).split(axis)[1][0]
-        print('Stage Error code:', Error)
-        return 2
-    else: return 1   # stage moving, or error
 
 def get_position(axis):
     GO.write(bytes("RP%s\n" %axis, codec))
@@ -107,8 +93,8 @@ def trigger_mode(mode):
        CAM.set_attribute_value('buffer_pixel_type',2)          # 'MONO8': 1, 'MONO16': 2, 'MONO12': 3
 
        #OUTPUT settings
-       
-       # oscilloscope shows that kind needs to be 'trigger ready'
+       # output 1
+              # oscilloscope shows that kind needs to be 'trigger ready'
        CAM.set_attribute_value('output_trigger_source[0]', 2)      #Start on input trigger (6), start on readout (2)
        CAM.set_attribute_value('output_trigger_polarity[0]', 2)    #Positive
        CAM.set_attribute_value('output_trigger_kind[0]', 4)        #trigger ready = 4
@@ -129,7 +115,36 @@ def new_folder(root, sZ, Exp, name):
     os.makedirs(folder)
 
     return folder
+
+def stage_status(axis): #tests stage to make sure movement is complete
+    #get stage status
+    GO.write(bytes("RS%s\n" %axis, codec))
+    Status = GO.readline()[1:]
+    # print("stage status raw:", Status)
+    Status = Status.decode(codec).split(axis)[1][0]
+    if Status.isdigit():
+        return int(Status) 
     
+    else: return -1   # not sure what the status is
+    
+def stage_ready(timeout, axis):
+    time.sleep(0.01)                    #needed to prevent stage returning status '2' before the move starts
+    t0 = time.time()
+    while True:
+        s = stage_status(axis)
+        # print(s)
+        if s==1 or s==3: #stage is still moving, reset timer
+            t0 = time.time()
+        if s in [2,4]: # stage has stopped
+            return True
+        if s == 9: #error code
+            # print('error code')
+            return False
+        if(time.time() > t0 + timeout): 
+            # print('stage timeout')
+            return False
+        pass
+
     
 # =============================================================================
 # SCRIPT
@@ -156,12 +171,13 @@ SPz = get_position('z')
 print('Stage start position:', SPx, SPy, SPz,'um')
 
 go_to_position(z=SPz + (((nZ-1)*sZ)/-2.0)) # start position minus half of the range
+
+
 set_stage_triggers('z', sZ)
 # delay for stage movement
 t0 = time.time()
-while(stage_movement('z')==1): 
-    if(time.time() > t0 + 2): break
-    pass
+#poll for stage status
+if(stage_ready(1, 'z')): pass
     
 CAM.start_acquisition()    
 while(DIL.inWaiting()):
@@ -173,26 +189,29 @@ verbose = True
 
 for i in range(nZ):
     if(verbose): print("_______________") 
-    print(i)  
+     
+    while(DIL.inWaiting()):
+        print("DIL:", DIL.readline())
+    print(i) 
     t0 = time.time()
     CAM.wait_for_frame()
-    if(verbose): print("wait for imaage: ", time.time() - t0, "(s)")
+    if(verbose): print("wait for image: \t", time.time() - t0, "(s)")
     t0 = time.time()
     frame = CAM.read_oldest_image()
-    if(verbose): print("get frame: ", time.time() - t0, "(s)")
+    if(verbose): print("get frame: \t\t\t", time.time() - t0, "(s)")
     t0 = time.time()
     imageio.imwrite('%s\\z%s.tif' %(folder,i), frame)
-    if(verbose): print("save frame: ", time.time() - t0, "(s)")
+    if(verbose): print("save frame: \t\t", time.time() - t0, "(s)")
     t0 = time.time()
     while(DIL.inWaiting()):
         print("DIL", DIL.readline())
-    if(verbose): print("check serial: ", time.time() - t0, "(s)")
+    if(verbose): print("check serial: \t\t", time.time() - t0, "(s)")
     
 CAM.stop_acquisition()
 
 # # return camera to start position
 go_to_position(z=SPz, x=SPx, y=SPy)
-while(stage_movement('z')==1): pass
+if(stage_ready(1, 'z')): pass
 print('return position:', get_position('z'))
 # =============================================================================
 # close connections

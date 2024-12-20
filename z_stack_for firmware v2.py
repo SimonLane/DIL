@@ -14,12 +14,12 @@ Created on Sun Sept 24 16:06:51 2024
 # PARAMETERS
 # =============================================================================
 
-nZ          = 5  #Number of slices
-sZ          = 0.40  #slice separation (micrometers)
+nZ          = 1000  #Number of slices
+sZ          = 0.05  #slice separation (micrometers)
 exp         = 50   #camera exposure time (ms)
 root_location = r"D:/Light_Sheet_Images/Data/"
 # name        = "VisBank_405nm_13mW_450-40_Hoechst_MouseLiver_R3_2"
-name        = "VisBank_488nm_520-40_Spheroid_LD_100cells_2"
+name        = "MaiTai_820nm_520-40_130mW_Bead_200nm_Left_2"
 # name        = "VisBank_561nm_SP650_Spheroid_Scattering_100cells_1"
 
 verbose = True     #for debugging

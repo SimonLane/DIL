@@ -16,35 +16,34 @@ Created on Sun Sept 24 16:06:51 2024
 # =============================================================================
 
 #  channels
-#               on/off     power(%)    exp(ms)     wavelength           filter positon
-_405        =  [0,         100,        50,         '405nm',             1]
-_488        =  [1,         100,        50,         '488nm',             2]
-_561        =  [1,         100,        50,         '561nm',             3]
-_660        =  [0,         100,        50,         '660nm',             4]
-_scatter    =  [1,         10,         50,         '561nm scatter',     6]
+#               on/off     power(%)    exp(ms)     name         wavelength   filter positon
+_405        =  [0,         100,        50,         '405nm',     405,         1]
+_488        =  [1,         100,        50,         '488nm',     488,         2]
+_561        =  [1,         100,        50,         '561nm',     561,         3]
+_660        =  [0,         100,        50,         '660nm',     660,         4]
+_scatter    =  [1,         10,         50,         'scatter',   561,         6]
 
 
-lasers = [_405,_488,_561,_660, _scatter]
 
-nZ          = 50  #Number of slices
-sZ          = 0.40  #slice separation (micrometers)
 
-# name        = "VisBank_405nm_13mW_450-40_Hoechst_MouseLiver_R3_2"
+nZ          = 50        # Number of slices
+sZ          = 0.40      # slice separation (micrometers)
+
+# experiment name
 name        = "SL_test"
-# name        = "VisBank_561nm_SP650_Spheroid_Scattering_100cells_1"
 
 root_location = r"D:/Light_Sheet_Images/Data/"
 verbose = True     #for debugging
 
 # ================ Don't Edit =================================================
-GO_COM = 'COM7'
-DIL_COM = 'COM6'
-codec = 'utf8'
-board_num = 0           # Visible laser board number
-vis_connection = False  # keeps track of whether visible laser bank is connected
+GO_COM              = 'COM7'
+DIL_COM             = 'COM6'
+codec               = 'utf8'
+board_num           = 0             # Visible laser board number
+vis_connection      = False         # keeps track of whether visible laser bank is connected
+cal_txt = "C:/Local/GitHub/DIL/VisBank/"
 
-
-
+lasers = [_405,_488,_561,_660, _scatter]
 
 
 # =============================================================================
@@ -52,8 +51,10 @@ vis_connection = False  # keeps track of whether visible laser bank is connected
 # =============================================================================
 # camera 
 from pylablib.devices import DCAM
+
 #  general 
 import serial, time, datetime, os
+import pandas as pd
 
 # image saving
 import imageio
@@ -62,6 +63,8 @@ import imageio
 from mcculw import ul
 from mcculw.device_info import DaqDeviceInfo
 from mcculw.enums import InterfaceType, DigitalIODirection
+
+
 
 # =============================================================================
 # FUNCTIONS
@@ -180,18 +183,42 @@ def set_power(A_channel_number, D_channel_number, w, v):
             if(v>0): ul.d_bit_out(0, port.type, D_channel_number, 1)
         print("setting %snm laser to %s" %(w,v))
 
+def percent_to_16_bit(p, _min, _max): #percentage, min 16-bit value, max 16-bit value    
+    if(p==0):  v=0
+    else:        
+        m = (_max-_min)/(100) # map percentage to 16-bit value
+        v = int((m*p) + _min)
+    return v
+
 # =============================================================================
 # SCRIPT
 # =============================================================================
+# load in vis-laser calibration
+dataframe = pd.read_csv("%sLaserCalibration.txt" %(cal_txt), header=0, index_col=0, sep ='\t') 
 channels = []
-string =''
+#build array with data for selected channels
+print('selected channels: ') 
+C_num = 0
 for item in lasers:
+    
     if item[0]:
-        channels.append(item)
-        string += item[3]
-        string += ' '
-print('selected channels: ', string)
+        row = []
+        laser = dataframe[dataframe['wav.'] == item[4]] # find the calibration data for the chosen wavelength
+        # convert the power to DAC value using laser calibration
+        v = percent_to_16_bit(item[1], laser['minVal'].values[0], laser['maxVal'].values[0])
+        row.append(C_num)
+        row.append(item[3])
+        row.append(item[4])
+        row.append(item[1])
+        row.append(item[2])
+        row.append(item[5])
+        row.append(laser['Ach'].values[0])
+        row.append(laser['Dch'].values[0])
+        row.append(v)
 
+        channels.append(row)
+        print(row)
+        C_num += 1
 
 
 stage_error = False
@@ -211,6 +238,8 @@ dio_info = daq_dev_info.get_dio_info()
 port = next((port for port in dio_info.port_info if port.supports_output),None)
 ul.d_config_port(0,port.type, DigitalIODirection.OUT)
 print('Vis laser bank connected')
+
+
 
 # FILTER
 

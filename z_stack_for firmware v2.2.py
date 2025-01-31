@@ -17,15 +17,30 @@ Updated on Tues Jan 25
 # =============================================================================
 # PARAMETERS
 # =============================================================================
+musical = False
 
-nZ          = 300  #Number of slices
-sZ          = 1.00  #slice separation (micrometers)
-exp         = 50 # = galvo_transit_time (ms)
-#name        = "timing_test_delay_49_linetime_24.4_scan_100"
+nZ          = 500  #Number of slices
+sZ          = 0.05  #slice separation (micrometers)
+#nZ          = 12  #Number of slices
+#sZ          = 26.8  #slice separation (micrometers)
+exp         = 100 # = galvo_transit_time (ms)
 
-#name        = "VisBank_405nm_13mW_450-40_Hoechst_MouseLiver_R3_2"
-name        = "VisBank_488nm_16mW_520-40_Organoid_51-4_1"
+name         = "VisBank_488nm_100percent_520-40_Beads_200nm"
+#name         = "MaiTai_850nm_350mW_520-40_Beads_200nm"
+#name         = "VisBank_561nm_1percent_FlyAntennae_Scattering_1"
+#name        = "VisBank_488nm_16mW_520-40_WellEdge_Stability_Test"
+#name        = "VisBank_561nm_600-40_16mW_Beads_Test"
+#name        = "VisBank_660nm_13mW_WellEdge_Stability_Test"
+#name        =  "VisBank_405nm_13mW_450-40_Organoid_51-4_1"
+#name        = "VisBank 488nm_16mW_520-40_Organoid_51-4_Test"
+#name        = "VisBank_561nm_600-40_Organoid_51-4_1_test"
+
 #name        = "VisBank_561nm_SP650_Spheroid_Scattering_100cells_1"
+
+#name        = "timing_test_delay_49_linetime_24.4_scan_100"
+#name        = "VisBank_405nm_13mW_450-40_Hoechst_MouseLiver_R3_2"
+
+
 
 root_location = r"D:/Light_Sheet_Images/Data/"
 
@@ -166,7 +181,7 @@ def new_folder(root, sZ, Exp, name):
 
     return folder
     
-##live_view = ('line exposure:', line_exposure*1000, 'ms', line_interval*1000000, 'us')
+#live_view = ('line exposure:', line_exposure*1000, 'ms', line_interval*1000000, 'us')
    # units = 'ms'
    # line_exp = line_exposure*1000 #convert line exposure from s to ms
    # if(line_exp<1): #line exposure is sub ms, change units to us
@@ -226,7 +241,14 @@ while(DIL.inWaiting()):
 
 DIL.write(bytes("/stop;\r" , codec))
 DIL.write(bytes("/stack.%s.%s;\r" %(exp,nZ), codec))
-  
+
+if musical:DIL.write(bytes("/musical.1;\r", codec))
+else:DIL.write(bytes("/musical.0;\r", codec))
+
+
+while(DIL.inWaiting()):
+    print("DIL", DIL.readline())
+    
 t0 = tstart
 
 # z-stack loop

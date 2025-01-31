@@ -3,7 +3,7 @@
 
 
 #include <Arduino.h>
-const float firmware            = 2.1;      // firmware version
+const String firmware            = "2.1.1";      // firmware version
 
 
 #include <SPI.h>
@@ -180,25 +180,24 @@ void parseCommand(String command) {
 void z_slice(uint32_t exposure){ //do a single slice within a z-stack, exposure in ms
 
   //calculate galvo step time
-  float s_t = (exposure * 1000.0) / g_steps_per_FOV; //s_t: (us) exposure time spread over the numberof galvo steps in the camera  FOV 
+  float s_t = (exposure * 1000.0) / g_steps_per_FOV; //s_t: (us) exposure time spread over the number of galvo steps in the camera FOV 
 
   uint32_t prev_micros = 0;
   
-  int s= 1; //n DAC steps to move each time
+
 // step times <2µs can't be written to the DAC fast enough, need to increase step time and decrease DAC resolution
-  if(s_t < 2.0 and s_t >=1.0)     {s_t = s_t * 2.0; s=2;  }
-  if(s_t < 1.0)                   {s_t = s_t * 4.0; s=4;  }
+
   uint32_t s_t_int = int(s_t);
 
-//need to trigger camera 87 microseconds before g_start_step
-  float g_steps_for_cam = (87 / s_t) + 1; //how many galvo steps in 87us? (plus one to ensure rounding up)
-  int exposure_start = g_enter_step - int(g_steps_for_cam);
-
+//need to trigger camera 9 * line interval microseconds before g_start_step
+  float line_interval = (exposure / 2048); //line interval = exposure/no. of pixel lines
+  float cam_delay_steps = ((9 * line_interval) / s_t) + 1; //how many galvo steps before g_enter_step (plus one to ensure rounding up)
+  int cam_trigger_step = g_enter_step - int(cam_delay_steps);
   
   digitalWriteFast(CamOut,LOW);
   //SCAN
-  for(int g=0;g<1024;g=g+s){
-    if(g==cam_delay)     {digitalWriteFast(CamOut, HIGH); camera_ready_flag = false; }  // trigger camera ~ 87 us before beam enters FOV
+  for(int g=0;g<1024;g++){
+    if(g==cam_trigger_step)     {digitalWriteFast(CamOut, HIGH); camera_ready_flag = false; }  // trigger camera ~ 87 us before beam enters FOV
     
     while(micros() < prev_micros + s_t_int){} //delay for step time
     prev_micros = micros();

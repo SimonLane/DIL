@@ -14,17 +14,30 @@ Created on Sun Sept 24 16:06:51 2024
 # PARAMETERS
 # =============================================================================
 
-nZ          = 10  #Number of slices
-sZ          = 0.50  #slice separation (micrometers)
-exp         = 50   #galvo sweep time (ms)
-line_exp    = 3     # exposure per camera line
-cam_trigger_delay = 49 # Set camera delay (galvo steps)
-line_time = 24.4e-06
+nZ          = 300  #Number of slices
+sZ          = 1.00  #slice separation (micrometers)
+exp         = 100   # = galvo_transit_time (ms)
+#name        = "timing_test_delay_49_linetime_24.4_scan_100"
+
+#name        = "VisBank_405nm_13mW_450-40_Hoechst_MouseLiver_R3_2"
+name        = "VisBank_488nm_16mW_520-40_Organoid_51-4_1"
+#name        = "VisBank_561nm_SP650_Spheroid_Scattering_100cells_1"
+
 root_location = r"D:/Light_Sheet_Images/Data/"
-# name        = "VisBank_405nm_13mW_450-40_Hoechst_MouseLiver_R3_2"
-# name        = "VisBank_488nm_16mW_520-40_Beads_1x10^4_500nm_Both_D60"
-# name        = "VisBank_561nm_SP650_Spheroid_Scattering_100cells_1"
-name        = "timtng test_ delay_49_linetime_24_scan_50_exp_3"
+
+peak_exposure_ratio = 174.08  #Calculated from empirically determined exposure time with highest SNR using 488nm, 50ms exp. 4250*(50000/2048)
+
+line_interval = (exp/1000.0)/2048   # Exposure time converted to s, divided by number of pixels
+line_exposure = (peak_exposure_ratio*line_interval) # Time each sensor row is exposed (us)
+
+
+#line_exposure  = 4250.0   # exposure per camera line (us)
+#cam_trigger_delay = 49 # Set camera delay (galvo steps)
+#line_time = 24.4e-06
+
+
+
+
 verbose = True     #for debugging
 
 # =============================================================================
@@ -93,12 +106,13 @@ def set_stage_triggers(axis, step):
 def cam_settings(exp=None,bin_=None, bits=None, trigger=None):
     if trigger!=None:   trigger_mode(trigger)
     
-    if exp!=None:       
-        CAM.set_attribute_value("EXPOSURE TIME", line_exp) 
-        # line_time = (exp/1000.0)/2048                                     # Exposure time converted to us, divided by number of pixels
-        print('line interval:', line_time)
-        CAM.set_attribute_value("internal_line_interval", line_time)
+    if exp!=None:    
+        print('line interval:', line_interval)
+        CAM.set_attribute_value("internal_line_interval", line_interval)
         print(CAM.get_attribute_value("internal_line_interval"))
+        print('line exposure:', line_exposure)
+        CAM.set_attribute_value("EXPOSURE TIME", line_exposure)          # Line exposure time converted to s
+        print(CAM.get_attribute_value("EXPOSURE TIME"))
     if bin_!=None:      CAM.set_attribute_value("BINNING", bin_)
     if bits!=None:      CAM.set_attribute_value("BIT_PER_CHANNEL", bits)
     
@@ -137,9 +151,9 @@ def new_folder(root, sZ, Exp, name):
     if(sZ<1): #step size is sub-micron, change units to nm
         sZ = sZ*1000
         units = 'nm'
-    folder = r"%s%s-%s-%s %s_%s_%s (%s%s, %sms) - %s" %(root,now.year, now.month, now.day,   
+    folder = r"%s%s-%s-%s %s_%s_%s (%s%s, %sms, %.2fms) - %s" %(root,now.year, now.month, now.day,   
                                                         now.hour,now.minute,now.second, 
-                                                        sZ,units, Exp, name)
+                                                        sZ,units, Exp, line_exposure*1000, name)
     os.makedirs(folder)
 
     return folder
@@ -155,7 +169,7 @@ DIL = serial.Serial(port=DIL_COM, baudrate=115200, timeout=0.2)
 print('n cameras:', DCAM.get_cameras_number())
 CAM = DCAM.DCAMCamera()
 
-DIL.write(bytes("/delay.%s;\r" %(cam_trigger_delay), codec)) # Set camera trigger delay (galvo steps)
+#DIL.write(bytes("/delay.%s;\r" %(cam_trigger_delay), codec)) # Set camera trigger delay (galvo steps)
 
 cam_settings(exp=exp, bin_=1, trigger='hardware')
 

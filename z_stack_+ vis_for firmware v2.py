@@ -25,9 +25,8 @@ _scatter    =  [1,         10,         50,         'scatter',   561,         6]
 
 
 
-
-nZ          = 50        # Number of slices
-sZ          = 0.40      # slice separation (micrometers)
+nZ          = 10        # Number of slices
+sZ          = 1      # slice separation (micrometers)
 
 # experiment name
 name        = "SL_test"
@@ -38,6 +37,7 @@ verbose = True     #for debugging
 # ================ Don't Edit =================================================
 GO_COM              = 'COM7'
 DIL_COM             = 'COM6'
+Filter_COM          = 'COM5'  # to check!
 codec               = 'utf8'
 board_num           = 0             # Visible laser board number
 vis_connection      = False         # keeps track of whether visible laser bank is connected
@@ -169,8 +169,28 @@ def new_folder(root, sZ, Exp, name):
     os.makedirs(folder)
 
     return folder
+# =============================================================================
+# Filter functions
+# =============================================================================
 
-
+def go_to(position):
+    Filter.write("pos=%s\r" %(position))
+    
+def filter_setup():
+    Filter.write("speed=1\r")
+    Filter.write("trig=1\r")
+    Filter.write("sensors=0\r")
+    
+def get_position():
+    Filter.write("pos?\r")
+    while Filter.inWaiting(): Filter.readlines()  #clear buffer
+    p = Filter.readlines()[0].split('\r')[1]
+    if isinstance(p, (int)):
+        position = p
+        return int(position)
+    else:
+        return -1
+    
 # =============================================================================
 # Laser functions    
 # =============================================================================
@@ -221,35 +241,37 @@ for item in lasers:
         C_num += 1
 
 
+
 stage_error = False
 # =============================================================================
 # SETUP HARDWARE
 # =============================================================================
 # VIS LASER BANK
 
-devices = ul.get_daq_device_inventory(InterfaceType.ANY)
-ul.create_daq_device(board_num, devices[0])
-daq_dev_info = DaqDeviceInfo(board_num)
-# setup analog
-ao_info = daq_dev_info.get_ao_info()
-ao_range = ao_info.supported_ranges[0]
-# setup digital
-dio_info = daq_dev_info.get_dio_info()
-port = next((port for port in dio_info.port_info if port.supports_output),None)
-ul.d_config_port(0,port.type, DigitalIODirection.OUT)
-print('Vis laser bank connected')
+# devices = ul.get_daq_device_inventory(InterfaceType.ANY)
+# ul.create_daq_device(board_num, devices[0])
+# daq_dev_info = DaqDeviceInfo(board_num)
+# # setup analog
+# ao_info = daq_dev_info.get_ao_info()
+# ao_range = ao_info.supported_ranges[0]
+# # setup digital
+# dio_info = daq_dev_info.get_dio_info()
+# port = next((port for port in dio_info.port_info if port.supports_output),None)
+# ul.d_config_port(0,port.type, DigitalIODirection.OUT)
+# print('Vis laser bank connected')
 
 
 
-# FILTER
+# # FILTER
+# Filter = serial.Serial(port=Filter_COM, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=0.07)
+# filter_setup()
 
-
-# STAGE
-GO = serial.Serial(port=GO_COM, baudrate=115200, timeout=0.2)
-# DIL control board 
-DIL = serial.Serial(port=DIL_COM, baudrate=115200, timeout=0.2)
-# CAMERA
-CAM = DCAM.DCAMCamera()
+# # STAGE
+# GO = serial.Serial(port=GO_COM, baudrate=115200, timeout=0.2)
+# # DIL control board 
+# DIL = serial.Serial(port=DIL_COM, baudrate=115200, timeout=0.2)
+# # CAMERA
+# CAM = DCAM.DCAMCamera()
 
 
 
@@ -267,57 +289,60 @@ CAM = DCAM.DCAMCamera()
 # SPz = get_position('z')
 # print('Stage start position:', SPx, SPy, SPz,'um')
 
-# go_to_position(z=SPz + (((nZ-1)*sZ)/-2.0)) # start position minus half of the range
-
-
-
-# set_stage_triggers('z', sZ)
-# # delay for stage movement
-# tstart = time.time()
-# #poll for stage status
-
-# clear_buffer()
-
-# while(stage_movement('z')==1): 
-#     if(time.time() > tstart + 2): break
-#     pass
-# while(stage_movement('z')==1): 
-#     if(time.time() > tstart + 2): break
-#     pass
-
-# CAM.start_acquisition() 
-# time.sleep(0.1)  # delay needed to make sure camera is ready fefore he DIL controller starts triggering
-
-# while(DIL.inWaiting()):
-#     print("DIL", DIL.readline())
-
-# DIL.write(bytes("/stop;\r" , codec))
-# DIL.write(bytes("/stack.%s.%s;\r" %(exp,nZ), codec))
-  
-# t0 = tstart
-
-# # z-stack loop
-# for i in range(nZ):
-   
-#     if(verbose): print("__________ z=%s, frame interval: %03f (ms)__________" %(i,(time.time() - t0)*1000.0)) 
-#     t0 = time.time() 
-#     while(DIL.inWaiting()):
-#         print("DIL:", DIL.readline())
-#     try:
-#         CAM.wait_for_frame(timeout=5.0)
-#     except:
-#         print("camera timeout error caught")
-#         break
-
-#     frame = CAM.read_oldest_image()
-#     if(frame is None): print("empty frame error")
-#     imageio.imwrite('%s\\z%s.tif' %(folder,i), frame)
+# for channel in channels:
+#     go_to_position(z=SPz + (((nZ-1)*sZ)/-2.0)) # start position minus half of the range
+    
+    
+    
+#     set_stage_triggers('z', sZ)
+#     # delay for stage movement
+#     tstart = time.time()
+#     #poll for stage status
+    
+#     clear_buffer()
+    
+#     while(stage_movement('z')==1): 
+#         if(time.time() > tstart + 2): break
+#         pass
+#     while(stage_movement('z')==1): 
+#         if(time.time() > tstart + 2): break
+#         pass
+    
+#     CAM.start_acquisition() 
+#     time.sleep(0.1)  # delay needed to make sure camera is ready fefore he DIL controller starts triggering
+    
 #     while(DIL.inWaiting()):
 #         print("DIL", DIL.readline())
-
-# if(verbose): print("total time: ", time.time() - tstart, "(s)")    
-
-# CAM.stop_acquisition()
+    
+#     DIL.write(bytes("/stop;\r" , codec))
+#     DIL.write(bytes("/stack.%s.%s;\r" %(exp,nZ), codec))
+      
+#     t0 = tstart
+    
+#     # z-stack loop
+#     for i in range(nZ):
+       
+#         if(verbose): print("__________ z=%s, frame interval: %03f (ms)__________" %(i,(time.time() - t0)*1000.0)) 
+#         t0 = time.time() 
+#         while(DIL.inWaiting()):
+#             print("DIL:", DIL.readline())
+#         try:
+#             CAM.wait_for_frame(timeout=5.0)
+#         except:
+#             print("camera timeout error caught")
+#             break
+    
+#         frame = CAM.read_oldest_image()
+#         if(frame is None): print("empty frame error")
+#         imageio.imwrite('%s\\z%s.tif' %(folder,i), frame)
+#         while(DIL.inWaiting()):
+#             print("DIL", DIL.readline())
+    
+#     if(verbose): print("total time: ", time.time() - tstart, "(s)")    
+    
+#     CAM.stop_acquisition()
+#     go_to_position(z=SPz, x=SPx, y=SPy)
+#     while(stage_movement('z')==1): pass
 
 # DIL.write(bytes("/stop;\r" , codec))
 # DIL.write(bytes("/galvo.0;\r", codec))
@@ -330,7 +355,8 @@ CAM = DCAM.DCAMCamera()
 # # =============================================================================
 
 
-ul.release_daq_device(board_num)
-GO.close()
-DIL.close()
-CAM.close()
+# ul.release_daq_device(board_num)
+# GO.close()
+# DIL.close()
+# CAM.close()
+# Filter.close()

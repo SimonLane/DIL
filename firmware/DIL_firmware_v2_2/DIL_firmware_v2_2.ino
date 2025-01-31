@@ -33,6 +33,7 @@ uint16_t LED_power = 20;  //0-50 is useable range
 
 volatile bool stage_ready_flag  = true;     // flag denoting when stage moves are complete
 volatile bool camera_ready_flag = true;     // flag denotes when camera has returned a 'readout complete' signal
+volatile bool filter_ready_flag = false;     // flag denotes when filter move is complete
 
 
 uint16_t slice_counter          = 0;        // for tracking slices through a z-stack
@@ -77,8 +78,8 @@ void setup() {
   pinMode(CamOut, OUTPUT);
   digitalWrite(CamOut, LOW);
 
-  pinMode(trigger_Filter, OUTPUT);
-  digitalWrite(trigger_Filter, LOW);
+  pinMode(trigger_Filter, INPUT);
+  attachInterrupt(digitalPinToInterrupt(trigger_Filter), filter_ready, RISING);
 
   pinMode(trigger_LED, OUTPUT);
   digitalWrite(trigger_LED, HIGH);
@@ -88,8 +89,9 @@ void setup() {
   analogWriteResolution(8);
 }
 
-void z_move_complete()  {stage_ready_flag    = true; digitalWriteFast(trigger_Filter, LOW);}
+void z_move_complete()  {stage_ready_flag    = true;}
 void camera_ready()     {camera_ready_flag   = true;}
+void filter_ready()     {filter_ready_flag   = true;}
 
 void parseCommand(String command) {
   Serial.print("incoming command --> ");Serial.println(command);
@@ -211,7 +213,7 @@ void z_slice(uint32_t exposure){ //do a single slice within a z-stack, exposure 
     digitalWriteFast(Zo,HIGH);
     delayMicroseconds(1);
     digitalWriteFast(Zo,LOW);
-    stage_ready_flag = false; digitalWriteFast(trigger_Filter, HIGH);
+    stage_ready_flag = false;
   }
   set_galvo(0);                     // return galvo to zero position ready for next scan
 }
@@ -253,7 +255,10 @@ void loop() {
   if(scanning && camera_ready_flag){                    // start next scan when camera finished readout
     z_slice(exposure);
   }
-
+  if(filter_ready_flag){
+    serial.println("Filter_True");
+    filter_ready_flag = false;
+  }
   
 }
 

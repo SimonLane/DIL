@@ -64,7 +64,7 @@ Filter_COM          = 'COM5' #? to check
 Vis_COM             = 'COM9' #? to check
 codec               = 'utf8'
 board_num           = 0             # Visible laser board number
-cal_txt = "C:/Users/sil1r12/Downloads/" # laser calibration file
+calibrations = "C:/Users/sil1r12/Downloads/" # laser calibration file
 
 stage_speed = 4000
 stage_ac_dc = 500
@@ -91,8 +91,6 @@ import numpy as np
 from mcculw import ul
 from mcculw.device_info import DaqDeviceInfo
 from mcculw.enums import InterfaceType, DigitalIODirection
-
-
 
 # =============================================================================
 # FUNCTIONS
@@ -185,6 +183,9 @@ def trigger_mode(mode):
        CAM.set_attribute_value('output_trigger_delay[0]', 0)      # 
        CAM.set_attribute_value('output_trigger_period[0]', 0.001)      # 
     
+def create_empty_frame(): # for when there is a camera timeout, or frame grab error, insert an ampty frame to prevent aborting the script
+    return np.zeros((2048, 2048), dtype=np.uint16)
+
 def new_folder(root, sZ, name):
     now = datetime.datetime.now()
     units = 'um'
@@ -195,7 +196,6 @@ def new_folder(root, sZ, name):
                                                         now.hour,now.minute,now.second, 
                                                         sZ,units, name)
     os.makedirs(folder)
-
     return folder
 
 # =============================================================================
@@ -213,7 +213,6 @@ def filter_setup():
     time.sleep(0.1)
     Filter.write("sensors=0\r") # 0:turn off internal IR sensor when not moving
     time.sleep(0.1)
-
 
 def set_filter_position(p):
     filter.write("pos=%s\r" %(int(p)+1))
@@ -239,9 +238,14 @@ def wait_for_filter(): #wait for the DIL (teensy) to report the filter wheel TTL
         if(i==19):
             print("timeout waiting for filter wheel")
             log_append("filter wheel timeout")
-        
-    
 
+def load_filters(filter_file_location):
+    with open('%s/filters.txt' %(filter_file_location), 'r') as file:
+        # Read each line, strip the newline character, and store it in a list
+        filters = [line.strip() for line in file]
+        
+    return filters
+        
 # =============================================================================
 # Laser functions    
 # =============================================================================
@@ -273,21 +277,17 @@ def log_append(string, channel=None, z=None):
         line = line + string + "\n"
         file.write(line)
 
-def create_empty_frame():
-    return np.zeros((2048, 2048), dtype=np.uint16)
-
-
 # =============================================================================
 # handle connections        
 # =============================================================================
-# connect all devices or go home
+# connect all devices or go home, prevents messy situations when one device is not connected
 con_laser   = False
 con_filter  = False
 con_stage   = False
 con_DIL     = False
 con_cam     = False
-
-def close_all_coms(exception=None): # close connections to any open devices, then exit script
+# close connections to any open devices, then exit script
+def close_all_coms(exception=None):     
     if(exception is not None): 
         print("hardware connection error: ") 
         print(exception)   
@@ -319,7 +319,7 @@ folder = new_folder(root_location, sZ, name)
 print('Expt. saved to: ', folder)
 
 # load in vis-laser calibration
-vis_laser_dataframe = pd.read_csv("%sLaserCalibration.txt" %(cal_txt), header=0, index_col=0, sep ='\t') 
+vis_laser_dataframe = pd.read_csv("%sLaserCalibration.txt" %(calibrations), header=0, index_col=0, sep ='\t') 
 channels = []
 #build array with data for selected channels
 print('selected channels: ') 
@@ -375,6 +375,7 @@ try:
     Filter = serial.Serial(port=Filter_COM, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=0.07)
     con_filter = True
     print("connected filter wheel")
+    filter_names = load_filters(calibrations)
 except Exception as e: close_all_coms(exception = e)
 # STAGE
 try:
@@ -431,8 +432,8 @@ with open(r"%s/metadata.txt" %(folder), "w") as file:
         file.write("Channel %s:\n" %(channel[0]))
         file.write("\tChannel name:\t\t%s\n" %(channel[1]))
         file.write("\tExposure:\t\t%s\n" %(channel[4]))
-        file.write("\tCamera line interval:\t%s\n" %(line_interval)
-        file.write("\tCamera line exposure:\t%s\n" %(line_exposure)
+        file.write("\tCamera line interval:\t%s\n" %(line_interval))
+        file.write("\tCamera line exposure:\t%s\n" %(line_exposure))
         file.write("\tLaser:\t\t\t%snm\n" %(channel[2]))
         file.write("\tLaser power:\t\t%s" %(channel[3]) + "(%)\n")
         file.write("\tLaser DAC value:\t%s\n" %(channel[8]))

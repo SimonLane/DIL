@@ -85,6 +85,7 @@ import pandas as pd
 
 # image saving
 import imageio
+import numpy as np
 
 #imports for USB-3103 laser control board
 from mcculw import ul
@@ -271,6 +272,10 @@ def log_append(string, channel=None, z=None):
         if(not z is None): line = line + "z%04d,\t" %(channel)
         line = line + string + "\n"
         file.write(line)
+
+def create_empty_frame():
+    return np.zeros((2048, 2048), dtype=np.uint16)
+
 
 # =============================================================================
 # handle connections        
@@ -487,14 +492,17 @@ for channel in channels:
             print("DIL:", DIL.readline())
         try:
             CAM.wait_for_frame(timeout=5.0)
+            frame = CAM.read_oldest_image()
         except:
             print("camera timeout error caught")
-            break
+            log_append("camera timeout error", channel=channel[0], z=i)
+            frame = create_empty_frame() # create empty frame
     
-        frame = CAM.read_oldest_image()
         if(frame is None): 
             print("empty frame error")
-            log_append("empty frame error", channel=channel[0], z=i)
+            log_append("inserted empty frame", channel=channel[0], z=i)
+            frame = create_empty_frame() # create empty frame
+            
         imageio.imwrite('%s\\z%04d.tif' %(folder,i), frame)
         while(DIL.inWaiting()):
             print("DIL", DIL.readline())

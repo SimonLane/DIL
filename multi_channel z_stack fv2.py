@@ -64,7 +64,7 @@ Filter_COM          = 'COM5' #? to check
 Vis_COM             = 'COM9' #? to check
 codec               = 'utf8'
 board_num           = 0             # Visible laser board number
-calibrations = "C:/Users/sil1r12/Downloads/" # laser calibration file
+calibrations = "Calibration files" # local folder containing calibration files (lasers and filters)
 
 stage_speed = 4000
 stage_ac_dc = 500

@@ -29,14 +29,14 @@ musical = False
 #               on/off     power(%)    exp(ms)     name         wavelength   filter positon
 _405        =  [0,         100,        50,         'Hoechst',       405,         1]
 _488        =  [1,         100,        50,         'alexa 488',     488,         2]
-_561        =  [1,         100,        50,         'alexa 561',     561,         3]
+_561        =  [0,         100,        50,         'alexa 561',     561,         3]
 _660        =  [0,         100,        50,         '660nm',         660,         4]
-_scatter    =  [1,         10,         50,         'scatter',       561,         6]
+_scatter    =  [0,         10,         50,         'scatter',       561,         6]
 # TODO - add MaiTai here too
 
 lasers = [_405,_488,_561,_660, _scatter] # change order here to change channel order
 
-nZ          = 10        # Number of slices
+nZ          = 2        # Number of slices
 sZ          = 1      # slice separation (micrometers)
 
 # experiment name
@@ -60,8 +60,8 @@ filter_names = [
 # ================ Don't Edit often =================================================
 GO_COM              = 'COM7'
 DIL_COM             = 'COM6'
-Filter_COM          = 'COM5' #? to check
-Vis_COM             = 'COM9' #? to check
+Filter_COM          = 'COM5'
+Vis_COM             = 'COM9'
 codec               = 'utf8'
 board_num           = 0             # Visible laser board number
 calibrations = "Calibration files" # local folder containing calibration files (lasers and filters)
@@ -205,20 +205,21 @@ def filter_setup():
     time.sleep(0.3)
     while Filter.inWaiting(): # clear buffer
          Filter.readlines()
-    Filter.write("speed=1\r") # 1: high speed, 0: slow speed!!
+    Filter.write(b"speed=1\r") # 1: high speed, 0: slow speed!!
     time.sleep(0.1)
-    Filter.write("trig=1\r") # 0: TTL input trigger, (low trigger), 1: TTL output, high when position reached
+    Filter.write(b"trig=1\r") # 0: TTL input trigger, (low trigger), 1: TTL output, high when position reached
     time.sleep(0.1)
-    Filter.write("pos=%s\r" %channels[0][5]) # set to filter required for first channel
+    set_filter_position(channels[0][5]) # set to filter required for first channel
     time.sleep(0.1)
-    Filter.write("sensors=0\r") # 0:turn off internal IR sensor when not moving
+    Filter.write(b"sensors=0\r") # 0:turn off internal IR sensor when not moving
     time.sleep(0.1)
 
 def set_filter_position(p):
-    filter.write("pos=%s\r" %(int(p)+1))
+    string = "pos=%s\r" %(p)
+    Filter.write(string.encode())
 
 def get_filter_position():
-    Filter.write("pos?\r")
+    Filter.write(b"pos?\r")
     while Filter.inWaiting(): Filter.readlines()  #clear buffer
     p = Filter.readlines()[0].split('\r')[1]
     if isinstance(p, (int)):
@@ -226,18 +227,26 @@ def get_filter_position():
     else:
         return -1
     
-def wait_for_filter(): #wait for the DIL (teensy) to report the filter wheel TTL signal
+def wait_for_filter(target_position): #wait for the DIL (teensy) to report the filter wheel TTL signal
+# NOTE - if the filter is already in the correct posisiton then no trigger signal will be received. 
+# Therefore need to compare the filter position against the target position first.
+    actual_position = get_filter_position()
+    if(actual_position == target_position):
+        print("filter wheel in position (no move)")
+        return
+
     for i in range(20): # 2 second polling timeout
         time.sleep(0.1)
         while DIL.inWaiting():
             line = DIL.readline()
-            print(line)
-            if("Filter_True" in line):
+            print(' from DIL...', line)
+            if(b"Filter_True" in line):
                 print("filter wheel completed move")
-                break
+                return
         if(i==19):
             print("timeout waiting for filter wheel")
             log_append("filter wheel timeout")
+            return
 
 def load_filters(filter_file_location):
     with open('%s/filters.txt' %(filter_file_location), 'r') as file:
@@ -249,7 +258,7 @@ def load_filters(filter_file_location):
 # =============================================================================
 # Laser functions    
 # =============================================================================
-def set_laser_power(A_channel_number, D_channel_number, w, v):
+def set_laser_power(A_channel_number, D_channel_number, v):
     ul.a_out(0,A_channel_number,ao_range,v) # send the 16-bit value for the DAC
     if(D_channel_number > 0):
         if(v>0): ul.d_bit_out(0, port.type, D_channel_number, 1)
@@ -319,12 +328,12 @@ folder = new_folder(root_location, sZ, name)
 print('Expt. saved to: ', folder)
 
 # load in vis-laser calibration
-vis_laser_dataframe = pd.read_csv("%sLaserCalibration.txt" %(calibrations), header=0, index_col=0, sep ='\t') 
+vis_laser_dataframe = pd.read_csv("%s/LaserCalibration.txt" %(calibrations), header=0, index_col=0, sep ='\t') 
 channels = []
 #build array with data for selected channels
 print('selected channels: ') 
 C_num = 0
-for item in lasers:   
+for item in lasers:  
     if item[0]:
         row = []
         laser = vis_laser_dataframe[vis_laser_dataframe['wav.'] == item[4]] # find the calibration data for the chosen wavelength
@@ -355,6 +364,7 @@ for item in lasers:
 # and the script to exit
 
 # VIS LASER BANK
+if(verbose):print('connecting hardware: ', 'vis laser')
 try:
     devices = ul.get_daq_device_inventory(InterfaceType.ANY)
     ul.create_daq_device(board_num, devices[0])
@@ -370,26 +380,35 @@ try:
     con_laser = True
     print("connected visible lasers")
 except Exception as e: close_all_coms(exception = e)
+
 # FILTER
+if(verbose):print('connecting hardware: ', 'filter')
 try:
     Filter = serial.Serial(port=Filter_COM, baudrate=115200, bytesize=8, parity='N', stopbits=1, timeout=0.07)
     con_filter = True
     print("connected filter wheel")
     filter_names = load_filters(calibrations)
+    filter_setup()
 except Exception as e: close_all_coms(exception = e)
+
 # STAGE
+if(verbose):print('connecting hardware: ', 'stage')
 try:
     GO = serial.Serial(port=GO_COM, baudrate=115200, timeout=0.2)
     con_stage = True
     print("connected GO stage")
 except Exception as e: close_all_coms(exception = e)
+
 # DIL control board 
+if(verbose):print('connecting hardware: ', 'DIL controller')
 try:
     DIL = serial.Serial(port=DIL_COM, baudrate=115200, timeout=0.2)
     con_DIL = True
     print("connected DIL controller")
 except Exception as e: close_all_coms(exception = e)
+
 # CAMERA
+if(verbose):print('connecting hardware: ', 'camera')
 try:
     CAM = DCAM.DCAMCamera()
     con_cam = True 
@@ -403,14 +422,16 @@ SPz = get_position('z')
 print('Stage start position:', SPx, SPy, SPz,'um')
 
 # make metadata file with channels, exposures, filters, names, dates etc.
+
+if(verbose):print('creating metadata file')
 now = datetime.datetime.now()
-with open(r"%s/metadata.txt" %(folder), "w") as file:
+with open(r"%s/metadata.txt" %(folder), "w") as file: # populate metadata file
     file.write("Experiment name:\t\t%s\n" %(name))
     file.write("Experiment date:\t\t%s-%s-%s\n" %(now.year, now.month, now.day))
     file.write("Experiment time:\t\t%s:%s:%s\n" %(now.hour,now.minute,now.second))
     file.write("Number of channels:\t\t%s\n" %(len(channels)))
     file.write("Number of z slices:\t\t%s\n" %(nZ))
-    file.write("Camera Binning:\t\t%s\n" %(binning))
+    file.write("Camera Binning:\t\t\t%s\n" %(binning))
 
     if sZ < 1:
         file.write("Z step size:\t\t%s (nm)\n" %(sZ*1000))
@@ -442,21 +463,25 @@ with open(r"%s/metadata.txt" %(folder), "w") as file:
         file.write("\tSave location:\t\t%s\n" %(channel[9]))
     file.write("\nExperiment Log:\n")
 
-# channels format:  0: channel number, 1: name, 2: wavelength, 3: power , 4: exp, 5: filter, 
-#                   6: laserAnalog, 7: laserDigital, 8: laserDAC, 9: sub_folder_dir
+# channels data format:     0: channel number, 1: name, 2: wavelength, 3: power , 4: exp, 5: filter, 
+#                           6: laserAnalog, 7: laserDigital, 8: laserDAC, 9: sub_folder_dir
 
 for channel in channels:
+    if(verbose):print('starting channel: ', channel[0])
     log_append("starting channel", channel = channel[0])
 # filter setup
+    if(verbose):print('set filter: ', channel[5])
     set_filter_position(channel[5]) # set first as is slowest device
     
 # camera setup
+    if(verbose):print('setup camera: ', channel[4])
     line_interval = (channel[4]/1000.0)/2048   # Exposure time converted to s, divided by number of pixels
     line_exposure = (peak_exposure_ratio*line_interval) # Time each sensor row is exposed (us) 
     cam_settings(line_exposure, line_interval, bin_= binning, trigger='hardware')
     CAM.setup_acquisition(mode="sequence", nframes = nZ)
 
 # stage to start position. Perform z-stack centered around current position
+    if(verbose):print('setup stage: d =', sZ)
     go_to_position(z=SPz + (((nZ-1)*sZ)/-2.0)) # start position minus half of the range
     set_stage_triggers('z', sZ)
     tstart = time.time()
@@ -466,17 +491,20 @@ for channel in channels:
         pass
     
 # check for filter position
-    wait_for_filter()
+    if(verbose):print('wait for filter: ')
+    wait_for_filter(channel[5])
     
     CAM.start_acquisition() 
     time.sleep(0.1)  # delay needed to make sure camera is ready before the DIL controler starts triggering
     
 # turn on laser
-    set_laser_power(channel[6], channel[7], channel[2], channel[8]) 
+    if(verbose):print('laser on: ', channel[2], channel[3])
+    set_laser_power(channel[6], channel[7], channel[8]) 
     while(DIL.inWaiting()):
         print("DIL", DIL.readline())
 
-# setup the DIL controller    
+# setup the DIL controller  
+    if(verbose):print('start DIL: ', channel[4])  
     DIL.write(bytes("/stop;\r" , codec))
     DIL.write(bytes("/stack.%s.%s;\r" %(int(channel[4]),nZ), codec))
     if musical:DIL.write(bytes("/musical.1;\r", codec))
@@ -504,12 +532,12 @@ for channel in channels:
             log_append("inserted empty frame", channel=channel[0], z=i)
             frame = create_empty_frame() # create empty frame
             
-        imageio.imwrite('%s\\z%04d.tif' %(folder,i), frame)
+        imageio.imwrite('%s\\z%04d.tif' %(channel[9],i), frame)
         while(DIL.inWaiting()):
             print("DIL", DIL.readline())
 
 # turn off laser
-    set_laser_power(channel[6], channel[7], channel[2], 0)    
+    set_laser_power(channel[6], channel[7], 0)    
     if(verbose): print("total time: ", time.time() - tstart, "(s)")    
     
     CAM.stop_acquisition()

@@ -19,14 +19,21 @@ Updated on Tues Jan 25
 # =============================================================================
 musical = False
 
-nZ          = 1  #Number of slices
-sZ          = 1.0 #slice separation (micrometers)
-#nZ          = 12  #Number of slices
-#sZ          = 26.8  #slice separation (micrometers)
-exp         = 50 # = galvo_transit_time (ms)
+nZ          = 400        # Number of slices for stack
+sZ          = 0.050       # Slice separation for stack (µm)
 
-name         = "AJR_Test"
-#name         = "MaiTai_875nm_800mW_FAD_Organoid_1_delay0"
+#nZ         = 12        # Number of slices for quick view
+#sZ         = sZ*10     # Slice separation for quick view (µm)
+
+exp         = 50        # Exposure time for frame, equiv. to galvo_transit_time (ms) 
+
+hsize       = 1024           # ROI horizontal size for subarray (pixels) max 2048
+hpos        = 512            # ROI horizontal start position (pixel no.) range: 0 - 2047, mid: 1023
+vsize       = 1024           # ROI vertical size for subarray (pixels) max 2048
+vpos        = 512            # ROI vertical start position (pixel no.) range: 0 - 2047, mid: 1023
+
+
+name         = "488nm_Test_Subarray1024_pyteen1024_Bead_200nm_10^6_Right"
 #name         = "VisBank_488nm_100percent_520-40_Consuelo_3101_2_Full"
 #name         = "VisBank_561nm_100percent_600-40_Consuelo_1102_2_Full"
 #name         = "Test"
@@ -55,9 +62,10 @@ name         = "AJR_Test"
 
 root_location = r"D:/Light_Sheet_Images/Data/"
 
-peak_exposure_ratio = 10*174.08  #Calculated from empirically determined exposure time with highest SNR using 488nm, 50ms exp. 4250/(50000/2048) *multiplier arbitrary for testing
+#peak_exposure_ratio = 10*174.08  #Calculated from empirically determined exposure time with highest SNR using 488nm, 50ms exp. 4250/(50000/2048) *multiplier arbitrary for testing
+peak_exposure_ratio = 100
 
-line_interval = (exp/1000.0)/2048   # Exposure time converted to s, divided by number of pixels *multiplier arbitrary for testing
+line_interval = (exp/1000.0)/vsize   # Exposure time converted to s, divided by number of pixels *multiplier arbitrary for testing
 line_exposure = (peak_exposure_ratio*line_interval) # Time each sensor row is exposed (us)
 
 line_exp = line_exposure*1000 #convert line exposure to ms
@@ -65,7 +73,7 @@ line_int = line_interval*1000000 #convert line interval to us
 live_view = [line_exp, line_int] #settings for live in ms and us respectively
 
 
-#line_exposure  = 4250.0   # exposure per camera line (us)
+#line_exposure  = 4.296875e-03   # exposure per camera line (us)
 #cam_trigger_delay = 49 # Set camera delay (galvo steps)
 #line_time = 24.4e-06
 
@@ -167,18 +175,22 @@ def trigger_mode(mode):
        CAM.set_attribute_value('buffer_pixel_type',2)          # 'MONO8': 1, 'MONO16': 2, 'MONO12': 3
        CAM.set_attribute_value('readout_direction',2)          # 1: Forwards (progressive sensor mode); 2: Backwards(progressive); 5: Diverging (Area sensor mode)
        CAM.set_attribute_value('subarray_mode',2)              # 1: Off; 2: On; 
-
+       CAM.set_attribute_value('subarray_hsize', hsize)        # Horizontal size of subarray ROI, starting at hpos (pixels)
+       CAM.set_attribute_value('subarray_hpos', hpos)          # Subarray horizontal starting position (pixel number)
+       CAM.set_attribute_value('subarray_vsize', vsize)        # Horizontal size of subarray ROI, starting at vpos (pixels)        
+       CAM.set_attribute_value('subarray_vpos', vpos)          # Subarray vertical starting position (pixel number)
+     
        #OUTPUT settings
        
        # oscilloscope shows that kind needs to be 'trigger ready'
-       CAM.set_attribute_value('output_trigger_source[0]', 2)      #Start on input trigger (6), start on readout (2)
-       CAM.set_attribute_value('output_trigger_polarity[0]', 2)    #Positive
-       CAM.set_attribute_value('output_trigger_kind[0]', 4)        #trigger ready = 4
-       CAM.set_attribute_value('output_trigger_base_sensor[0]', 16) # All views???
-       CAM.set_attribute_value('output_trigger_active[0]', 1)      # edge
-       CAM.set_attribute_value('output_trigger_delay[0]', 0)      # 
-       CAM.set_attribute_value('output_trigger_period[0]', 0.001)      # 
-    
+       CAM.set_attribute_value('output_trigger_source[0]', 2)           # Start on input trigger (6), start on readout end (2)
+       CAM.set_attribute_value('output_trigger_polarity[0]', 2)         # Positive
+       CAM.set_attribute_value('output_trigger_kind[0]', 4)             # Trigger Ready: 4
+       CAM.set_attribute_value('output_trigger_base_sensor[0]', 16)      # 16: All views; 1: View 1; 2: View 2; 15: Any View
+       CAM.set_attribute_value('output_trigger_active[0]', 1)           # 1: Edge
+       CAM.set_attribute_value('output_trigger_delay[0]', 0)            #
+       CAM.set_attribute_value('output_trigger_period[0]', 0.001)       # 
+       
 def new_folder(root, sZ, Exp, name):
     now = datetime.datetime.now()
     units = 'um'

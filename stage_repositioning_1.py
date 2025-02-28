@@ -4,10 +4,10 @@ Created on Wed Jan 22 15:14:07 2025
 
 @author: mbp20
 """
+xPos = 853.736
+yPos = -3069.072
+zPos = -1636.13
 
-zPos = 6000
-xPos = None
-yPos = None
 
 GO_COM = 'COM7'
 codec = 'utf8'
@@ -41,15 +41,15 @@ def get_position(axis):
     
 GO = serial.Serial(port=GO_COM, baudrate=115200, timeout=0.2)
 clear_buffer() 
-print('z0 =', get_position('z'))
 print('x0 =', get_position('x'))
 print('y0 =', get_position('y'))
+print('z0 =', get_position('z'))
 
 go_to_position(z = zPos, y = yPos, x = xPos) # start position minus half of the range
 time.sleep(1)
 print( )
-print('z1 =', get_position('z'))
 print('x1 =', get_position('x'))
 print('y1 =', get_position('y'))
+print('z1 =', get_position('z'))
 
 GO.close()

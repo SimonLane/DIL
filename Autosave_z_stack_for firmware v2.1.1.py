@@ -17,47 +17,21 @@ Updated on Tues Jan 25
 # =============================================================================
 # PARAMETERS
 # =============================================================================
-musical = False
 
-nZ          = 1  #Number of slices
-sZ          = 1.0 #slice separation (micrometers)
-#nZ          = 12  #Number of slices
-#sZ          = 26.8  #slice separation (micrometers)
+nZ          = 300  #Number of slices
+sZ          = 1.00  #slice separation (micrometers)
 exp         = 50 # = galvo_transit_time (ms)
-
-name         = "AJR_Test"
-#name         = "MaiTai_875nm_800mW_FAD_Organoid_1_delay0"
-#name         = "VisBank_488nm_100percent_520-40_Consuelo_3101_2_Full"
-#name         = "VisBank_561nm_100percent_600-40_Consuelo_1102_2_Full"
-#name         = "Test"
-#name         = "VisBank_488nm_100percent_520-40_Organoid_NewZO1Desmin_1"
-#name         = "VisBank_561nm_100percent_600-40_Organoid_NewZO1Desmin_1"
-
-#name         = "VisBank_561nm_600-40_Organoid_51-4_3"
-
-#name         = "488nm_exp_optimisation_520-40_Beads_200nm_1_Both"
-#name         = "488nm_100percent_520-40_Beads_200nm_1_Left_Single_L"
-#name         = "MaiTai_850nm_900mW_520-40_Beads_200nm_2_Left_Single"
-#name         = "VisBank_561nm_1percent_FlyAntennae_Scattering_1"
-#name         = "VisBank_488nm_16mW_520-40_WellEdge_Stability_Test"
-#name         = "VisBank_561nm_600-40_16mW_Beads_Test"
-#name         = "VisBank_660nm_13mW_WellEdge_Stability_Test"
-#name         =  "VisBank_405nm_13mW_450-40_Organoid_51-4_1"
-#name         = "VisBank 488nm_16mW_520-40_Organoid_51-4_Test"
-    
-
-#name        = "VisBank_561nm_SP650_Spheroid_Scattering_100cells_1"
-
 #name        = "timing_test_delay_49_linetime_24.4_scan_100"
+
 #name        = "VisBank_405nm_13mW_450-40_Hoechst_MouseLiver_R3_2"
-
-
+name        = "VisBank_488nm_16mW_520-40_Organoid_51-4_1"
+#name        = "VisBank_561nm_SP650_Spheroid_Scattering_100cells_1"
 
 root_location = r"D:/Light_Sheet_Images/Data/"
 
-peak_exposure_ratio = 10*174.08  #Calculated from empirically determined exposure time with highest SNR using 488nm, 50ms exp. 4250/(50000/2048) *multiplier arbitrary for testing
+peak_exposure_ratio = 174.08  #Calculated from empirically determined exposure time with highest SNR using 488nm, 50ms exp. 4250*(50000/2048)
 
-line_interval = (exp/1000.0)/2048   # Exposure time converted to s, divided by number of pixels *multiplier arbitrary for testing
+line_interval = (exp/1000.0)/2048   # Exposure time converted to s, divided by number of pixels
 line_exposure = (peak_exposure_ratio*line_interval) # Time each sensor row is exposed (us)
 
 line_exp = line_exposure*1000 #convert line exposure to ms
@@ -161,12 +135,12 @@ def trigger_mode(mode):
        CAM.set_attribute_value('trigger_global_exposure', 3)   # 3: Delayed;   5: Global Reset;
 
        # CAMERA settings
-       CAM.set_attribute_value('sensor_mode', 12)              # 1: Area;      12: Progressive (LIGHTSHEET);    14: Split View;     16: Dual Lightsheet;
+       CAM.set_attribute_value('sensor_mode', 12)               # 1: Area;      12: Progressive (LIGHTSHEET);    14: Split View;     16: Dual Lightsheet;
        #CAM.set_attribute_value('timing_exposure', 1)          # 1: After Readout;     3: Rolling;
        CAM.set_attribute_value('image_pixel_type',2)           # 'MONO8': 1, 'MONO16': 2, 'MONO12': 3
        CAM.set_attribute_value('buffer_pixel_type',2)          # 'MONO8': 1, 'MONO16': 2, 'MONO12': 3
-       CAM.set_attribute_value('readout_direction',2)          # 1: Forwards (progressive sensor mode); 2: Backwards(progressive); 5: Diverging (Area sensor mode)
-       CAM.set_attribute_value('subarray_mode',2)              # 1: Off; 2: On; 
+       CAM.set_attribute_value('readout_direction',2)           # 1: Forwards (progressive sensor mode); 2: Backwards(progressive); 5: Diverging (Area sensor mode)
+       
 
        #OUTPUT settings
        
@@ -192,7 +166,7 @@ def new_folder(root, sZ, Exp, name):
 
     return folder
     
-#live_view = ('line exposure:', line_exposure*1000, 'ms', line_interval*1000000, 'us')
+##live_view = ('line exposure:', line_exposure*1000, 'ms', line_interval*1000000, 'us')
    # units = 'ms'
    # line_exp = line_exposure*1000 #convert line exposure from s to ms
    # if(line_exp<1): #line exposure is sub ms, change units to us
@@ -252,14 +226,7 @@ while(DIL.inWaiting()):
 
 DIL.write(bytes("/stop;\r" , codec))
 DIL.write(bytes("/stack.%s.%s;\r" %(exp,nZ), codec))
-
-if musical:DIL.write(bytes("/musical.1;\r", codec))
-else:DIL.write(bytes("/musical.0;\r", codec))
-
-
-while(DIL.inWaiting()):
-    print("DIL", DIL.readline())
-    
+  
 t0 = tstart
 
 # z-stack loop

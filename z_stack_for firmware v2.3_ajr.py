@@ -19,11 +19,11 @@ Updated on Tues Jan 25
 # =============================================================================
 musical = False
 
-nZ          = 400        # Number of slices for stack
-sZ          = 0.050       # Slice separation for stack (µm)
+nZ          = 10      # Number of slices for stack
+sZ          = 1.0      # Slice separation for stack (µm)
 
-#nZ         = 12        # Number of slices for quick view
-#sZ         = sZ*10     # Slice separation for quick view (µm)
+#nZ         = 10        # Number of slices for quick view
+#sZ         = 13.4     # Slice separation for quick view (µm)
 
 exp         = 50        # Exposure time for frame, equiv. to galvo_transit_time (ms) 
 
@@ -32,31 +32,15 @@ hpos        = 512            # ROI horizontal start position (pixel no.) range: 
 vsize       = 1024           # ROI vertical size for subarray (pixels) max 2048
 vpos        = 512            # ROI vertical start position (pixel no.) range: 0 - 2047, mid: 1023
 
-
-name         = "488nm_Test_Subarray1024_pyteen1024_Bead_200nm_10^6_Right"
+name         = "test_SL"
+#name         = "730nm_Organoids_LabelFree_SP650_Only_3"
 #name         = "VisBank_488nm_100percent_520-40_Consuelo_3101_2_Full"
 #name         = "VisBank_561nm_100percent_600-40_Consuelo_1102_2_Full"
 #name         = "Test"
 #name         = "VisBank_488nm_100percent_520-40_Organoid_NewZO1Desmin_1"
 #name         = "VisBank_561nm_100percent_600-40_Organoid_NewZO1Desmin_1"
 
-#name         = "VisBank_561nm_600-40_Organoid_51-4_3"
 
-#name         = "488nm_exp_optimisation_520-40_Beads_200nm_1_Both"
-#name         = "488nm_100percent_520-40_Beads_200nm_1_Left_Single_L"
-#name         = "MaiTai_850nm_900mW_520-40_Beads_200nm_2_Left_Single"
-#name         = "VisBank_561nm_1percent_FlyAntennae_Scattering_1"
-#name         = "VisBank_488nm_16mW_520-40_WellEdge_Stability_Test"
-#name         = "VisBank_561nm_600-40_16mW_Beads_Test"
-#name         = "VisBank_660nm_13mW_WellEdge_Stability_Test"
-#name         =  "VisBank_405nm_13mW_450-40_Organoid_51-4_1"
-#name         = "VisBank 488nm_16mW_520-40_Organoid_51-4_Test"
-    
-
-#name        = "VisBank_561nm_SP650_Spheroid_Scattering_100cells_1"
-
-#name        = "timing_test_delay_49_linetime_24.4_scan_100"
-#name        = "VisBank_405nm_13mW_450-40_Hoechst_MouseLiver_R3_2"
 
 
 
@@ -288,7 +272,8 @@ for i in range(nZ):
         break
 
     frame = CAM.read_oldest_image()
-    if(frame is None): print("empty frame error")
+    if(frame is None): 
+        print("empty frame error")
     imageio.imwrite('%s\\z%s.tif' %(folder,i), frame)
     while(DIL.inWaiting()):
         print("DIL", DIL.readline())

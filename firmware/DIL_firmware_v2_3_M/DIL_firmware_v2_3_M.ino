@@ -25,7 +25,7 @@ const byte CamOut               = 40;
 const byte CamIn                = 22;
 const byte trigger_LED          = 23;
 const byte trigger_Filter       = 16;
-const byte trigger_Laser        = 35;
+const byte test_output          = 35;
 
 //LED power
 uint16_t LED_power = 20;  //0-50 is useable range
@@ -85,6 +85,9 @@ void setup() {
   pinMode(trigger_LED, OUTPUT);
   digitalWrite(trigger_LED, HIGH);
   
+  pinMode(test_output, OUTPUT);
+  digitalWrite(test_output, HIGH);
+
   set_galvo(park);
 
   analogWriteResolution(8);
@@ -256,7 +259,7 @@ void loop() {
     z_slice(exposure);                                  // take a slice
     slice_counter++;
     Serial.print("z:");Serial.println(slice_counter);
-    if(slice_counter == nZ){                            // check if stack complete
+    if(slice_counter >= nZ){                            // check if stack complete
       z_stacking = false;                               // stop z-stacking
       slice_counter = 0;                                // reset slice counter
       set_galvo(park);

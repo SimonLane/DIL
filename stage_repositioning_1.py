@@ -4,9 +4,9 @@ Created on Wed Jan 22 15:14:07 2025
 
 @author: mbp20
 """
-xPos = 853.736
-yPos = -3069.072
-zPos = -1636.13
+xPos = None
+yPos = None
+zPos = 2000
 
 
 GO_COM = 'COM7'

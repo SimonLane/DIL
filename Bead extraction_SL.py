@@ -69,7 +69,7 @@ def fit_gaussian_to_profile(x, profile):
     popt, pcov = curve_fit(gaussian, x, profile, p0=p0)
     return popt, pcov
 
-def load_tif_folder_with_interpolation(folder_path, pixel_size, z_spacing, convert_gray=True):
+def load_tif_folder(folder_path):
     """
     Load a folder of TIFF images into a 3D NumPy volume and interpolate along the z-axis 
     so that the voxel size becomes isotropic (pixel_size x pixel_size x pixel_size).
@@ -92,23 +92,13 @@ def load_tif_folder_with_interpolation(folder_path, pixel_size, z_spacing, conve
     for filename in file_list:
         # Read the image
         img = imageio.imread(filename)
-        # Optionally convert to grayscale if the image has 3 channels
-        if convert_gray and img.ndim == 3:
-            # Using the standard luminosity method:
-            img = np.dot(img[...,:3], [0.2989, 0.5870, 0.1140])
+
         slices.append(img)
     
     # Stack the 2D slices to create a 3D volume.
     volume = np.stack(slices, axis=0)  # volume.shape is (num_slices, height, width)
-    
-    # --- Interpolate the z-axis ---
-    # if z_spacing is 0.3 µm and pixel_size is 0.1 µm, then zoom_factor_z is 3.
-    new_z = int(volume.shape[0] * z_spacing / pixel_size)
-    
-    # Interpolate along the z-axis only. The zoom factors for (z, y, x) are (zoom_factor_z, 1, 1).
-    volume_iso = resize(volume, (new_z, volume.shape[1], volume.shape[2]),
-                    order=1, anti_aliasing=True)
-    return volume.shape, volume_iso
+
+    return volume.shape, volume
 
 def um_to_px(x):
     return (x / 0.268) + 512
@@ -118,33 +108,38 @@ def px_to_um(x):
 # =============================================================================
 #  PARAMETERS
 # =============================================================================
-
-folder_path     = "D:/Biophotonics Projects/Deconvolution/beads(2beams)"  # Update as needed
+#D:/Light_Sheet_Images/Data/2025-2-28 16_33_4 (268.0nm, 250ms, 24.41ms) - 488nm_Bead_200nm_Right_Iso
+folder_path     = "D:/Light_Sheet_Images/Data/2025-2-28 16_33_4 (268.0nm, 250ms, 24.41ms) - 488nm_Bead_200nm_Right_Iso"  
+# Update as needed
 pixel_size      = 0.268  # Pixel size in x and y (in micrometers)
-z_spacing       = 0.05    # Original spacing between z-slices (in micrometers)
+z_spacing       = 0.268    # Original spacing between z-slices (in micrometers)
 # Define the size of the cube to extract (voxels)
 sub_size        = 15
+#sub_size_z      = 51
 sub_size_z      = 51
 # Threshold the normalized volume (adjust threshold_value as needed).
-threshold_value = 0.15
+threshold_value = 0.25
 add_synthetic_data = False #overlay synthetic bead data onto each bead, tests the analysis
 show_each_bead  = True
 
 df = pd.DataFrame(columns=['Bead number', 'Xpx', 'Ypx', 'Zpx', 'Xum', 'Yum', 'Zum', 'FWHMx', 'FWHMy', 'FWHMz'])
 
 # Load and interpolate the volume to obtain isotropic voxels.
-ori_vol_shape , volume_iso = load_tif_folder_with_interpolation(folder_path, pixel_size, z_spacing)
+ori_vol_shape , volume_iso = load_tif_folder(folder_path)
 print("Ori Volume shape (z, y, x):", ori_vol_shape)
 print("ISO Volume shape (z, y, x):", volume_iso.shape)
 
 # apply blur to remove noise
-volume_iso_blur = gaussian_filter(volume_iso, sigma=0.5)
+#volume_iso_blur = gaussian_filter(volume_iso, sigma=0.5)
+volume_iso_blur = volume_iso
 # subtract background
 mean = np.mean(volume_iso_blur)
-volume_iso_blur = volume_iso_blur - mean
+volume_iso_blur = volume_iso_blur - (mean/3)
 
 # z-project whole stack
 z_projection = np.sum(volume_iso_blur, axis=0)
+
+aggregate_PSF = np.zeros((sub_size,sub_size,sub_size_z))
 
 # =============================================================================
 # Volume normalisation (naive)
@@ -155,25 +150,6 @@ if max_val == 0:
 iso_vol_norm = volume_iso_blur / max_val
 
 
-# find modal bead brightness from brightest beads? don't use whole stack brightest pixel
-
-for s in [100,30,10,3]:
-# Apply a maximum filter to find local maxima
-    filtered = maximum_filter(iso_vol_norm, size=s, mode='constant', cval=0)
-
-# Local maxima locations
-    local_maxima = (iso_vol_norm == filtered)
-    print(s, np.sum(local_maxima))
-    if np.sum(local_maxima) < 1000 and np.sum(local_maxima) > 100: break
-# Extract coordinates of maxima
-coords = np.argwhere(local_maxima)
-
-# Extract values at maxima
-values = iso_vol_norm[local_maxima]
-
-maxima_list = [(tuple(coord), value) for coord, value in zip(coords, values)]
-
-print('found', len(maxima_list), 'beads to estimate brightness')
 
 # eliminate edge cases
 # Calculate boundaries.
@@ -184,24 +160,6 @@ lower_y_limit = sub_size // 2
 upper_x_limit = iso_vol_norm.shape[2] - sub_size_z // 2
 lower_x_limit = sub_size // 2
 
-n=0
-mean = 0
-for bead in maxima_list:
-    zc, yc, xc = np.round(bead[0]).astype(int)
-    
-    if(     zc > upper_z_limit or
-            zc < lower_z_limit or
-            yc > upper_y_limit or
-            yc < lower_y_limit or
-            xc > upper_x_limit or
-            xc < lower_x_limit):
-        continue
-    n=n+1 
-    mean = mean + bead[1]
-
-        
-mean_bead = mean/n
-print('mean bead value estimate:', mean_bead, 'based on', n, 'beads')
 
 
 # --- Visualization of Detected Beads ---
@@ -213,7 +171,7 @@ z_coords = np.arange(sub_size_z)
 # =============================================================================
 # bead detection
 # =============================================================================
-binary_mask = iso_vol_norm > mean_bead / 3
+binary_mask = iso_vol_norm > threshold_value
 
 # Label connected components in the binary mask. A 3x3x3 connectivity structure groups adjacent (including diagonal) voxels.
 structure = np.ones((3, 3, 3), dtype=int)
@@ -245,8 +203,8 @@ for b, bead_center in enumerate(centers, start=1): # find brightness
     bead_cube_label = labeled[z_start:z_end, y_start:y_end, x_start:x_end]
     num_centers = len(np.unique(bead_cube_label))-1
     if(num_centers > 1):
-        # print('bead:', b, 'eliminated, (multiple beads in volume)')
-        continue
+        print('bead:', b, 'eliminated, (multiple beads in volume)')
+        # continue
     
     bead_cube = iso_vol_norm[z_start:z_end, y_start:y_end, x_start:x_end]
     bead_cube_norm = bead_cube/np.max(bead_cube)
@@ -256,15 +214,15 @@ for b, bead_center in enumerate(centers, start=1): # find brightness
     bead_cube_bin = bead_cube_norm > 0.5
     volume = np.sum(bead_cube_bin)
     if(volume > 75):
-        # print('bead:', b, 'eliminated, (volume)', volume)
-        continue
+        print('bead:', b, 'eliminated, (volume)', volume)
+        # continue
 
 # eliminate where brightest pixel not in xy center
     max_coords = np.argwhere(bead_cube_norm == 1)
     if(abs(max_coords[0][1] - sub_size/2) > 3 or
        abs(max_coords[0][1] - sub_size/2) > 3):
-        # print('bead:', b, 'eliminated, (brightest not centered)')
-        continue
+        print('bead:', b, 'eliminated, (brightest not centered)')
+        # continue
         
 # filter based on number of islands (beads)
 
@@ -272,8 +230,8 @@ for b, bead_center in enumerate(centers, start=1): # find brightness
     structure_3d = generate_binary_structure(3, 3)  # 3D array, full 26-connectivity
     labeled_array, num_islands = label(processed_arr_3d, structure=structure_3d)
     if(num_islands > 1):
-        # print('bead:', b, 'eliminated,', num_islands, 'islands')
-        continue   
+        print('bead:', b, 'eliminated,', num_islands, 'islands')
+        # continue   
     
     # print('bead:', b, 'added', n, '\t [ X:', xc, '\t Y:', yc, '\t Z:', zc, ']', max_coords[0])
 
@@ -296,7 +254,7 @@ for b, bead_center in enumerate(centers, start=1): # find brightness
         popt_y, pcov_y = fit_gaussian_to_profile(y_coords, profile_y)
         popt_z, pcov_z = fit_gaussian_to_profile(z_coords, profile_z)
     except:
-        # print('bead:', b, 'eliminated, (fitting)')
+        print('bead:', b, 'eliminated, (fitting)')
         continue
     
     # evaluate fit in Z axis
@@ -313,7 +271,7 @@ for b, bead_center in enumerate(centers, start=1): # find brightness
 
     if r_squared < 0.9:
         print("R-squared:", r_squared)
-        continue
+        # continue
 
 # measure the FWHM in each axis
     FWHMx = 2 * np.sqrt(2 * np.log(2)) * popt_x[2] * pixel_size
@@ -327,11 +285,13 @@ for b, bead_center in enumerate(centers, start=1): # find brightness
                   (xc*pixel_size)-um_offset, (yc*pixel_size)-um_offset, (zc*pixel_size)-um_offset_z,
                   FWHMx, FWHMy, FWHMz]
     
-    if(FWHMz > 20): continue
+    if(FWHMx > 2.5 or FWHMy > 2.5): continue
     
     df.loc[len(df)] = data_point  
     n+=1
     # add bead to the aggregate PSF
+    
+    aggregate_PSF = aggregate_PSF + bead_cube
     
     if show_each_bead:
 # Compute maximum intensity projections.
@@ -386,6 +346,61 @@ for b, bead_center in enumerate(centers, start=1): # find brightness
         plt.show()
    
 print(n, 'beads identified')
+# =============================================================================
+# AGGREGATE BEAD
+# =============================================================================
+aggregate_PSF = aggregate_PSF / np.max(aggregate_PSF)
+
+xy_proj = np.max(aggregate_PSF, axis=0)  # Collapse the z-axis.
+xz_proj = np.max(aggregate_PSF, axis=1)  # Collapse the y-axis.
+yz_proj = np.max(aggregate_PSF, axis=2)  # Collapse the x-axis.
+
+try:
+    crop_z_min = int((sub_size_z/2)-2)
+    crop_z_max = int((sub_size_z/2)+3)
+    crop_xy_min = int((sub_size/2)-4)
+    crop_xy_max = int((sub_size/2)+5)
+    profile_x = np.sum(bead_cube_norm[crop_z_min:crop_z_max, :, :], axis=(0, 1))  # sum over z and y, profile along x.
+    profile_y = np.sum(bead_cube_norm[crop_z_min:crop_z_max, :, :], axis=(0, 2))  # sum over z and x, profile along y.
+    profile_z = np.sum(bead_cube_norm[:,crop_xy_min:crop_xy_max,crop_xy_min:crop_xy_max], axis=(1, 2))  # sum over y and x, profile along z.
+
+    popt_x, pcov_x = fit_gaussian_to_profile(x_coords, profile_x)
+    popt_y, pcov_y = fit_gaussian_to_profile(y_coords, profile_y)
+    popt_z, pcov_z = fit_gaussian_to_profile(z_coords, profile_z)
+
+    # measure the FWHM in each axis
+    FWHMx = 2 * np.sqrt(2 * np.log(2)) * popt_x[2] * pixel_size
+    FWHMy = 2 * np.sqrt(2 * np.log(2)) * popt_y[2] * pixel_size
+    FWHMz = 2 * np.sqrt(2 * np.log(2)) * popt_z[2] * pixel_size
+    
+    fig, axes = plt.subplots(2, 3, figsize=(10, 15))
+    fig.suptitle("Aggregate bead Projections", fontsize=16)
+    
+    axes[0,0].imshow(xy_proj, cmap='gray')
+    axes[0,0].set_title("XY Projection")
+    axes[0,0].axis('off')
+    
+    axes[0,1].imshow(xz_proj, cmap='gray')
+    axes[0,1].set_title("XZ Projection")
+    axes[0,1].axis('off')
+    
+    axes[0,2].imshow(yz_proj, cmap='gray')
+    axes[0,2].set_title("YZ Projection")
+    axes[0,2].axis('off')
+    
+    axes[1,0].plot(x_coords, profile_x, 'b-', label='Data')
+    axes[1,0].plot(x_coords, gaussian(x_coords, *popt_x), 'r--', label='Gaussian Fit')
+    
+    axes[1,1].plot(y_coords, profile_y, 'b-', label='Data')
+    axes[1,1].plot(y_coords, gaussian(y_coords, *popt_y), 'r--', label='Gaussian Fit')
+    
+    axes[1,2].plot(z_coords, profile_z, 'b-', label='Data')
+    axes[1,2].plot(z_coords, gaussian(z_coords, *popt_z), 'r--', label='Gaussian Fit')
+    
+    plt.tight_layout()
+    plt.show()
+except:
+    print('bad fit')
 
 # =============================================================================
 # PLOTS
@@ -458,7 +473,7 @@ scatter = ax.scatter(df['Xum'], df['Yum'], c=df['FWHMx'], cmap='viridis', edgeco
 plt.xlabel("Xum")
 plt.ylabel("Yum")
 plt.xlim(-150, 150)  # Force x-axis limits
-plt.ylim(-150, 150)  # Force y-axis limits
+plt.ylim(150, -150)  # Force y-axis limits
 
 # Create a secondary x-axis on the top for inches
 secax_x = ax.secondary_xaxis('top', functions=(um_to_px, px_to_um))

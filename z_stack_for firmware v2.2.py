@@ -148,8 +148,7 @@ def cam_settings(exp=None,bin_=None, bits=None, trigger=None):
         CAM.set_attribute_value("EXPOSURE TIME", line_exposure)          # Line exposure time (s)
         print(CAM.get_attribute_value("EXPOSURE TIME"))
     if bin_!=None:      CAM.set_attribute_value("BINNING", bin_)
-    if bits!=None:      CAM.set_attribute_value("BIT_PER_CHANNEL", bits)
-    
+    if bits!=None:      CAM.set_attribute_value("BIT_PER_CHANNEL", bits) 
     
 def trigger_mode(mode):        
     if mode == 'hardware': #hardware
@@ -166,7 +165,7 @@ def trigger_mode(mode):
        CAM.set_attribute_value('image_pixel_type',2)           # 'MONO8': 1, 'MONO16': 2, 'MONO12': 3
        CAM.set_attribute_value('buffer_pixel_type',2)          # 'MONO8': 1, 'MONO16': 2, 'MONO12': 3
        CAM.set_attribute_value('readout_direction',2)          # 1: Forwards (progressive sensor mode); 2: Backwards(progressive); 5: Diverging (Area sensor mode)
-       CAM.set_attribute_value('subarray_mode',2)              # 1: Off; 2: On; 
+       #CAM.set_attribute_value('subarray_mode',2)              # 1: Off; 2: On; 
 
        #OUTPUT settings
        

@@ -27,20 +27,20 @@ musical = False
 
 #  channels
 #               on/off     power(%)    exp(ms)     name         wavelength   filter positon
-_405        =  [0,         100,        50,         'Hoechst',       405,         1]
-_488        =  [1,         100,        50,         'alexa 488',     488,         2]
-_561        =  [1,         100,        50,         'alexa 561',     561,         6]
+_405        =  [0,         0,        200,         'Hoechst',       405,         1]
+_488        =  [1,         100,        200,         'TetraSpek-488',     488,         2]
+_561        =  [0,         100,        25,         'KRT5',     561,         3]
 _660        =  [0,         100,        50,         '660nm',         660,         4]
 _scatter    =  [0,         10,         50,         'scatter',       561,         6]
 # TODO - add MaiTai here too
 
 lasers = [_405,_488,_561,_660, _scatter] # change order here to change channel order
 
-nZ          = 20        # Number of slices
-sZ          = 1      # slice separation (micrometers)
+nZ          = 400       # Number of slices
+sZ          = 0.05      # slice separation (micrometers)
 
 # experiment name
-name        = "SL_test"
+name        = "TetraSpek_200nm_Right"
 
 root_location = r"D:/Light_Sheet_Images/Data/"
 verbose = True     #for debugging
@@ -51,7 +51,7 @@ verbose = True     #for debugging
 filter_names = [
     '420+-20',          #p1
     '520+-20',          #p2
-    'filter 3',         #p3
+    '600+-20',         #p3
     'filter 4',         #p4
     'filter 5',         #p5
     'filter 6'          #p6
@@ -71,13 +71,17 @@ hpos        = 512            # ROI horizontal start position (pixel no.) range: 
 vsize       = 1024           # ROI vertical size for subarray (pixels) max 2048
 vpos        = 512            # ROI vertical start position (pixel no.) range: 0 - 2047, mid: 1023
 
-stage_speed = 4000
-stage_ac_dc = 500
+stage_speed = 40
+stage_ac_dc = 10
 
 binning = 1
 
-peak_exposure_ratio = 100
+peak_exposure_ratio     = 100
 
+# Detection characteristics
+objective_magnification = 20    # detection
+tube_lens_f             = 200   # mm
+pixel_physical_size     = 6.5   # microns
 
 # =============================================================================
 #  IMPORTS
@@ -195,17 +199,13 @@ def trigger_mode(mode):
        
     
 def create_empty_frame(): # for when there is a camera timeout, or frame grab error, insert an ampty frame to prevent aborting the script
-    return np.zeros((2048, 2048), dtype=np.uint16)
+    return np.zeros((hsize, vsize), dtype=np.uint16)
 
-def new_folder(root, sZ, name):
+def new_folder(root, name):
     now = datetime.datetime.now()
-    units = 'um'
-    if(sZ<1): #step size is sub-micron, change units to nm
-        sZ = sZ*1000
-        units = 'nm'
-    folder = r"%s%s-%s-%s %s_%s_%s (z-%s%s) - %s" %(root,now.year, now.month, now.day,   
-                                                        now.hour,now.minute,now.second, 
-                                                        sZ,units, name)
+
+    folder = r"%s%s-%02d-%02d %02d_%02d_%02d - %s" %(root,
+             now.year, now.month,now.day, now.hour,now.minute,now.second, name)
     os.makedirs(folder)
     return folder
 
@@ -331,7 +331,7 @@ def close_all_coms(exception=None):
 # SCRIPT
 # =============================================================================
 # make the parent folder
-folder = new_folder(root_location, sZ, name)
+folder = new_folder(root_location, name)
 print('Expt. saved to: ', folder)
 
 # load in vis-laser calibration
@@ -438,17 +438,29 @@ with open(r"%s/metadata.txt" %(folder), "w") as file: # populate metadata file
     file.write("Experiment time:\t\t%s:%s:%s\n" %(now.hour,now.minute,now.second))
     file.write("Number of channels:\t\t%s\n" %(len(channels)))
     file.write("Number of z slices:\t\t%s\n" %(nZ))
-    file.write("Camera Binning:\t\t\t%s\n" %(binning))
-
     if sZ < 1:
         file.write("Z step size:\t\t%s (nm)\n" %(sZ*1000))
     else:
         file.write("Z step size:\t\t\t%s (um)\n" %(sZ))
     file.write("\n")
-    file.write("Stage position:\n")
+    
+    file.write("Camera Binning:\t\t\t%s\n" %(binning)) 
+    file.write("Image size:\t\t\t%s x %s (px)\n" %(hsize,vsize))
+    file.write("Detection Objective Mag:\t%sx\n" %(objective_magnification))
+    file.write("Tube Lens f:\t\t\t%s (mm)\n" %(tube_lens_f))
+    file.write("System magnification:\t\t%sx\n" %(objective_magnification * (tube_lens_f / 165)))
+    file.write("Camera physical pixel size:\t%s (um)\n" %(pixel_physical_size))
+    file.write("pixel calibration:\t\t%s (um)\n" %(pixel_physical_size / (objective_magnification * (tube_lens_f / 165))))
+    file.write("\n")
+    
+    file.write("Stage position(center):\n")
     file.write("\t\t\t\tX:%s\n" %(SPx))
     file.write("\t\t\t\tY:%s\n" %(SPy))
     file.write("\t\t\t\tZ:%s\n" %(SPz))
+    file.write("\n")
+    file.write("\t\t\t\tZstart:%s\n"    %(SPz + (((nZ-1)*sZ)/-2.0)))
+    file.write("\t\t\t\tZend:%s\n"      %(SPz + (((nZ-1)*sZ)/2.0)))
+    file.write("\n")
     file.write("Stage speed:\t\t\t%s (mm/s)\n" %(stage_speed))
     file.write("Stage acceleration:\t\t%s (mm/s/s)\n" %(stage_ac_dc))
     
@@ -520,8 +532,8 @@ for channel in channels:
     else:DIL.write(bytes("/musical.0;\r", codec))
     
     t0stack = time.time()
-    if(verbose): print('hardware setup time: ', t0stack - t0channel)
-    log_append('hardware setup time: {}'.format(t0stack - t0channel), channel=channel[0])
+    if(verbose): print('hardware setup time: ', t0stack - t0channel, '(s)')
+    log_append('hardware setup time:\t{:.4f} (s)'.format(t0stack - t0channel), channel=channel[0])
     
     # z-stack loop
     for i in range(nZ):
@@ -556,9 +568,9 @@ for channel in channels:
     set_laser_power(channel[6], channel[7], 0)  
     
     if(verbose): print("Stack time: ", time.time() - t0stack, "(s)") 
-    log_append("Stack time: {} (s)".format( time.time() - t0stack))
+    log_append("Stack time:\t\t\t{:.4f} (s)".format( time.time() - t0stack))
     if(verbose): print("Channel time: ", time.time() - t0channel, "(s)") 
-    log_append("Channel time: {} (s)".format( time.time() - t0channel))
+    log_append("Channel time:\t\t{:.4f} (s)\n".format( time.time() - t0channel))
     
     CAM.stop_acquisition()
 

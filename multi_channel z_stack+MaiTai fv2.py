@@ -16,7 +16,7 @@ Created on Fri Jan 31 2025
 + multi-channel imaging
 + experiment metadata creation and log file
 + musical mode
-
++ MaiTai
 # =============================================================================
 """
 
@@ -24,17 +24,20 @@ Created on Fri Jan 31 2025
 # PARAMETERS - can edit
 # =============================================================================
 musical = False
+multi_photon = True  # If not using the MaiTai, set this false so it does not try to connect
 
 #  channels
 #               on/off     power(%)    exp(ms)     name         wavelength   filter positon
 _405        =  [0,         100,        50,         'Hoechst',       405,         1]
-_488        =  [1,         100,        50,         'alexa 488',     488,         2]
-_561        =  [1,         100,        50,         'alexa 561',     561,         6]
+_488        =  [0,         100,        50,         'alexa 488',     488,         2]
+_561        =  [0,         100,        50,         'alexa 561',     561,         3]
 _660        =  [0,         100,        50,         '660nm',         660,         4]
+_MaiTai1    =  [1,         10,         50,         '2P NADH',       730,         1]
+_MaiTai2    =  [0,         10,         50,         '2P FAD',        810,         2]
 _scatter    =  [0,         10,         50,         'scatter',       561,         6]
 # TODO - add MaiTai here too
 
-lasers = [_405,_488,_561,_660, _scatter] # change order here to change channel order
+lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
 nZ          = 20        # Number of slices
 sZ          = 1      # slice separation (micrometers)
@@ -62,6 +65,7 @@ GO_COM              = 'COM7'
 DIL_COM             = 'COM6'
 Filter_COM          = 'COM5'
 Vis_COM             = 'COM9'
+MaiTai_COM          = 'COM4'
 codec               = 'utf8'
 board_num           = 0             # Visible laser board number
 calibrations = "Calibration files" # local folder containing calibration files (lasers and filters)
@@ -293,6 +297,33 @@ def log_append(string, channel=None, z=None):
         line = line + string + "\n"
         file.write(line)
 
+
+# =============================================================================
+# MaiTai functions
+# =============================================================================
+def MaiTai_get_wavelength():
+    pass
+
+def MaiTai_set_wavelength(w):
+    if w < 1000 and w > 710:
+        pass
+    
+def MaiTai_shutter(v):
+    if v==0: # close the shutter
+        pass
+    if v==1: # open the shutter
+        pass
+
+def MaiTai_warmup():
+    pass
+
+def MaiTai_laser_stable():
+    pass
+
+def MaiTai_shutdown():
+    pass
+
+
 # =============================================================================
 # handle connections        
 # =============================================================================
@@ -302,6 +333,8 @@ con_filter  = False
 con_stage   = False
 con_DIL     = False
 con_cam     = False
+con_MaiTai  = False
+
 # close connections to any open devices, then exit script
 def close_all_coms(exception=None):     
     if(exception is not None): 
@@ -325,6 +358,10 @@ def close_all_coms(exception=None):
     if con_cam:     
         CAM.close()
         print("closed camera")
+    if con_MaiTai:
+        MaiTai_shutter(0) # close the internal shutter
+        MaiTai.close()
+        print("closed MaiTai")
     sys.exit()
     
 # =============================================================================

@@ -6,7 +6,7 @@ Created on Wed Jan 22 15:14:07 2025
 """
 xPos = None
 yPos = None
-zPos = 2000
+zPos = -2501
 
 
 GO_COM = 'COM7'

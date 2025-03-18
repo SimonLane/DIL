@@ -19,20 +19,20 @@ Updated on Tues Jan 25
 # =============================================================================
 musical = False
 
-nZ          = 10      # Number of slices for stack
-sZ          = 1.0      # Slice separation for stack (µm)
+nZ          = 75      # Number of slices for stack
+sZ          = 0.268      # Slice separation for stack (µm)
 
 #nZ         = 10        # Number of slices for quick view
 #sZ         = 13.4     # Slice separation for quick view (µm)
 
-exp         = 50        # Exposure time for frame, equiv. to galvo_transit_time (ms) 
+exp         = 100        # Exposure time for frame, equiv. to galvo_transit_time (ms) 
 
 hsize       = 1024           # ROI horizontal size for subarray (pixels) max 2048
 hpos        = 512            # ROI horizontal start position (pixel no.) range: 0 - 2047, mid: 1023
 vsize       = 1024           # ROI vertical size for subarray (pixels) max 2048
 vpos        = 512            # ROI vertical start position (pixel no.) range: 0 - 2047, mid: 1023
 
-name         = "test_SL"
+name         = "TetraSpek_200nm_100"
 #name         = "730nm_Organoids_LabelFree_SP650_Only_3"
 #name         = "VisBank_488nm_100percent_520-40_Consuelo_3101_2_Full"
 #name         = "VisBank_561nm_100percent_600-40_Consuelo_1102_2_Full"

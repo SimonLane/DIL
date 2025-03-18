@@ -55,6 +55,26 @@ def wait_for_shutter(open_close):
         sleep(0.1)
     return -1
 
+def wait_for_laser(): # for use in laser tuning during timelapse (blocking)
+    # This function will not return for at least 1 second, could the 'sleep' be reduced?
+    count = 0
+    try:
+        while count < 2:
+            maitai.write("READ:AHIS?\n")
+            history = maitai.readline().split(' ')
+            for i, item in enumerate(history):      # find first instance of '43'
+                if item[0:2] == '43': break
+            if history[i][2] == '1':                # test if stable
+                count = count + 1                   # if stable then increment counter and wait before next test
+                sleep(0.5)                          # this works for the thread but it can't be used from the main GUI due to blocking
+            else:
+                return False                        # if not then exit False
+        return True                                 # if counter reaches 2 exit True
+    except:
+        return False
+
+
+
 maitai =  serial.Serial(port='COM8', baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5, xonxoff=0, rtscts=0)
 sleep(1)
 
@@ -72,5 +92,8 @@ wait_for_shutter(1)
 sleep(0.1)
 close_shutter()
 wait_for_shutter(0)
+
+set_wavelength(750)
+wait_for_laser()
 
 maitai.close()

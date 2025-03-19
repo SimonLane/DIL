@@ -43,7 +43,7 @@ sZ          = 0.05      # slice separation (micrometers)
 name        = "TetraSpek_200nm_Right"
 
 root_location = r"D:/Light_Sheet_Images/Data/"
-verbose = True     #for debugging
+verbose = False     #for debugging
 
 # ================ Filter Wheel =================================================
 # TODO - make this an external file so it can be loaded by different scripts/GUIs etc
@@ -487,9 +487,9 @@ with open(r"%s/metadata.txt" %(folder), "w") as file: # populate metadata file
 #                           6: laserAnalog, 7: laserDigital, 8: laserDAC, 9: sub_folder_dir
 
 # setup progress bar
-total_pbar      = tqdm(total=nZ*len(channels), desc="Slices ")
+total_pbar      = tqdm(total=nZ*len(channels), desc="Progress")
 
-for channel in tqdm(channels, desc='Channels'):
+for channel in channels:
     if(verbose):print('starting channel: ', channel[0])
     log_append("starting channel", channel = channel[0])
     t0channel = time.time()
@@ -540,7 +540,7 @@ for channel in tqdm(channels, desc='Channels'):
     log_append('hardware setup time:\t{:.4f} (s)'.format(t0stack - t0channel), channel=channel[0])
     
     # z-stack loop
-    for i in tqdm(range(nZ), desc='Slices '):
+    for i in range(nZ):
         t0 = time.time() 
         
         while(DIL.inWaiting()):

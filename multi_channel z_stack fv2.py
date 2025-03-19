@@ -92,6 +92,7 @@ from pylablib.devices import DCAM
 # general 
 import datetime, os, time ,serial, sys, re
 import pandas as pd
+from tqdm import tqdm
 
 # image saving
 import imageio
@@ -485,7 +486,10 @@ with open(r"%s/metadata.txt" %(folder), "w") as file: # populate metadata file
 # channels data format:     0: channel number, 1: name, 2: wavelength, 3: power , 4: exp, 5: filter, 
 #                           6: laserAnalog, 7: laserDigital, 8: laserDAC, 9: sub_folder_dir
 
-for channel in channels:
+# setup progress bar
+total_pbar      = tqdm(total=nZ*len(channels), desc="Slices ")
+
+for channel in tqdm(channels, desc='Channels'):
     if(verbose):print('starting channel: ', channel[0])
     log_append("starting channel", channel = channel[0])
     t0channel = time.time()
@@ -522,7 +526,7 @@ for channel in channels:
     if(verbose):print('laser on: ', channel[2], channel[3])
     set_laser_power(channel[6], channel[7], channel[8]) 
     while(DIL.inWaiting()):
-        print("DIL", DIL.readline())
+        if(verbose):print("DIL", DIL.readline())
 
 # setup the DIL controller  
     if(verbose):print('start DIL: ', channel[4])  
@@ -536,11 +540,11 @@ for channel in channels:
     log_append('hardware setup time:\t{:.4f} (s)'.format(t0stack - t0channel), channel=channel[0])
     
     # z-stack loop
-    for i in range(nZ):
+    for i in tqdm(range(nZ), desc='Slices '):
         t0 = time.time() 
         
         while(DIL.inWaiting()):
-            print("DIL:", DIL.readline())
+            if(verbose):print("DIL:", DIL.readline())
         try:
             CAM.wait_for_frame(timeout=5.0)
         except:
@@ -560,20 +564,20 @@ for channel in channels:
             
         imageio.imwrite('%s\\z%04d.tif' %(channel[9],i), frame)
         while(DIL.inWaiting()):
-            print("DIL", DIL.readline())
+            if(verbose):print("DIL", DIL.readline())
 
         if(verbose): print("__________ z=%s, frame capture time: %03f (ms)__________" %(i,(time.time() - t0)*1000.0)) 
-        
+        total_pbar.update(1)
 # turn off laser
     set_laser_power(channel[6], channel[7], 0)  
-    
+    total_pbar.close()
     if(verbose): print("Stack time: ", time.time() - t0stack, "(s)") 
     log_append("Stack time:\t\t\t{:.4f} (s)".format( time.time() - t0stack))
     if(verbose): print("Channel time: ", time.time() - t0channel, "(s)") 
     log_append("Channel time:\t\t{:.4f} (s)\n".format( time.time() - t0channel))
     
     CAM.stop_acquisition()
-
+    
 DIL.write(bytes("/stop;\r" , codec))
 DIL.write(bytes("/galvo.0;\r", codec)) # park the laser beam off sample
 

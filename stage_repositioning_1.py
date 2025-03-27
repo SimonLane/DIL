@@ -6,8 +6,7 @@ Created on Wed Jan 22 15:14:07 2025
 """
 xPos = None
 yPos = None
-zPos = -2501
-
+zPos = 4000
 
 GO_COM = 'COM7'
 codec = 'utf8'

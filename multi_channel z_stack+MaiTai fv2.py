@@ -23,30 +23,28 @@ Created on Fri Jan 31 2025
 # =============================================================================
 # PARAMETERS - can edit
 # =============================================================================
-musical = False
-multi_photon = True  # If not using the MaiTai, set this false so it does not try to connect
+musical = False  
 
 #  channels
-#               on/off     power(%)    exp(ms)     name         wavelength   filter positon
-_405        =  [0,         100,        50,         'Hoechst',       405,         1]
-_488        =  [0,         100,        50,         'alexa 488',     488,         2]
-_561        =  [0,         100,        50,         'alexa 561',     561,         3]
-_660        =  [0,         100,        50,         '660nm',         660,         4]
-_MaiTai1    =  [1,         10,         50,         '2P NADH',       730,         1]
-_MaiTai2    =  [0,         10,         50,         '2P FAD',        810,         2]
-_scatter    =  [0,         10,         50,         'scatter',       561,         6]
-# TODO - add MaiTai here too
+#               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
+_405        =  [0,         100,        50,         'Hoechst',               405,         1]
+_488        =  [0,         100,        150,        '200nm_Bead',                 488,         2]
+_561        =  [0,         100,        50,         'alexa 561',             561,         3]
+_660        =  [0,         100,        50,         '660nm',                 660,         4]
+_MaiTai1    =  [1,         10,         1000,       '2P NADH',               730,         4]
+_MaiTai2    =  [1,         10,         1000,       '2P FAD',                875,         5]
+_scatter    =  [0,         4,         10,         'scatter',               488,         6]
 
 lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 20        # Number of slices
-sZ          = 1      # slice separation (micrometers)
+nZ          = 5        # Number of slices
+sZ          = 0.5      # slice separation (micrometers)
 
 # experiment name
-name        = "SL_test"
+name        = "MI_04_1"
 
 root_location = r"D:/Light_Sheet_Images/Data/"
-verbose = True     #for debugging
+verbose = False     #for debugging
 
 # ================ Filter Wheel =================================================
 # TODO - make this an external file so it can be loaded by different scripts/GUIs etc
@@ -54,7 +52,7 @@ verbose = True     #for debugging
 filter_names = [
     '420+-20',          #p1
     '520+-20',          #p2
-    'filter 3',         #p3
+    '600+-20',          #p3
     'filter 4',         #p4
     'filter 5',         #p5
     'filter 6'          #p6
@@ -75,13 +73,17 @@ hpos        = 512            # ROI horizontal start position (pixel no.) range: 
 vsize       = 1024           # ROI vertical size for subarray (pixels) max 2048
 vpos        = 512            # ROI vertical start position (pixel no.) range: 0 - 2047, mid: 1023
 
-stage_speed = 4000
-stage_ac_dc = 500
+stage_speed = 20
+stage_ac_dc = 5
 
 binning = 1
 
 peak_exposure_ratio = 100
 
+# Detection characteristics
+objective_magnification = 20    # detection
+tube_lens_f             = 200   # mm
+pixel_physical_size     = 6.5   # microns
 
 # =============================================================================
 #  IMPORTS
@@ -103,10 +105,10 @@ from mcculw.device_info import DaqDeviceInfo
 from mcculw.enums import InterfaceType, DigitalIODirection
 
 # =============================================================================
-# FUNCTIONS
+# STAGE FUNCTIONS
 # =============================================================================
 
-def clear_buffer():
+def clear_stage_buffer():
     print('clear buffer', GO.inWaiting(), 'bytes')
     while GO.inWaiting() > 0: GO.read()
     print('clear buffer', GO.inWaiting(), 'bytes')
@@ -153,16 +155,20 @@ def set_stage_triggers(axis, step):
     GO.write(bytes("SP  %s%s;\r\n" %(axis, stage_speed), codec))
     GO.write(bytes("AC  %s%s;\r\n" %(axis, stage_ac_dc), codec))
     GO.write(bytes("DC  %s%s;\r\n" %(axis, stage_ac_dc), codec))
-            
+
+
+# =============================================================================
+# CAMERA FUNCTIONS            
+# =============================================================================
 def cam_settings(line_interval, line_exposure, bin_=None, bits=None, trigger=None):
     if trigger!=None:   trigger_mode(trigger)
         
-    print('line interval:', line_interval)
+    if verbose: print('line interval:', line_interval)
     CAM.set_attribute_value("internal_line_interval", line_interval)
-    print(CAM.get_attribute_value("internal_line_interval"))
-    print('line exposure:', line_exposure)
+    if verbose: print(CAM.get_attribute_value("internal_line_interval"))
+    if verbose: print('line exposure:', line_exposure)
     CAM.set_attribute_value("EXPOSURE TIME", line_exposure)          # Line exposure time (s)
-    print(CAM.get_attribute_value("EXPOSURE TIME"))  
+    if verbose: print(CAM.get_attribute_value("EXPOSURE TIME"))  
     if bin_!=None:      CAM.set_attribute_value("BINNING", bin_)
     if bits!=None:      CAM.set_attribute_value("BIT_PER_CHANNEL", bits)
     
@@ -201,32 +207,29 @@ def trigger_mode(mode):
 def create_empty_frame(): # for when there is a camera timeout, or frame grab error, insert an ampty frame to prevent aborting the script
     return np.zeros((2048, 2048), dtype=np.uint16)
 
-def new_folder(root, sZ, name):
+# =============================================================================
+# FILE HANDLING
+# =============================================================================
+
+def new_folder(root, name):
     now = datetime.datetime.now()
-    units = 'um'
-    if(sZ<1): #step size is sub-micron, change units to nm
-        sZ = sZ*1000
-        units = 'nm'
-    folder = r"%s%s-%s-%s %s_%s_%s (z-%s%s) - %s" %(root,now.year, now.month, now.day,   
-                                                        now.hour,now.minute,now.second, 
-                                                        sZ,units, name)
+
+    folder = r"%s%s-%02d-%02d %02d_%02d_%02d - %s" %(root,
+             now.year, now.month,now.day, now.hour,now.minute,now.second, name)
     os.makedirs(folder)
     return folder
 
 # =============================================================================
-# Filter functions
+# FILTER FUNCTIONS
 # =============================================================================
 def filter_setup():
     while Filter.inWaiting(): # clear buffer
          Filter.readlines()
     Filter.write(b"speed=1\r") # 1: high speed, 0: slow speed!!
-    # time.sleep(0.05)
     Filter.write(b"trig=1\r") # 0: TTL input trigger, (low trigger), 1: TTL output, high when position reached
-    # time.sleep(0.05)
     set_filter_position(channels[0][5]) # set to filter required for first channel
-    # time.sleep(0.05)
     Filter.write(b"sensors=0\r") # 0:turn off internal IR sensor when not moving
-    # time.sleep(0.05)
+
 
 def set_filter_position(p):
     DIL.write(bytes("/filter;\r" , codec)) #setup DIL controller to listen for filter TTL signal
@@ -238,7 +241,7 @@ def get_filter_position():
     time.sleep(0.05)
     while Filter.inWaiting(): 
         f = Filter.readline()    
-        print('from filter:', f)
+        if verbose: print('from filter:', f)
         matches = re.findall(rb'pos=(\d+)', f)  # Look for 'pos=' followed by numbers
         positions = [int(m) for m in matches]  # Convert to integers
         if len(positions) > 0: 
@@ -250,9 +253,7 @@ def wait_for_filter(): #wait for the DIL (teensy) to report the filter wheel TTL
         
         while DIL.inWaiting():
             line = DIL.readline()
-            # print(' from DIL...', line)
             if(b"Filter_True" in line):
-                # print("filter wheel completed move")
                 return
         if(i==19):
             print("timeout waiting for filter wheel")
@@ -261,13 +262,11 @@ def wait_for_filter(): #wait for the DIL (teensy) to report the filter wheel TTL
         
 def load_filters(filter_file_location):
     with open('%s/filters.txt' %(filter_file_location), 'r') as file:
-        # Read each line, strip the newline character, and store it in a list
-        filters = [line.strip() for line in file]
-        
+        filters = [line.strip() for line in file]  # Read each line, strip the newline character, and store it in a list
     return filters
         
 # =============================================================================
-# Laser functions    
+# VISIBLE LASER FUNCTIONS
 # =============================================================================
 def set_laser_power(A_channel_number, D_channel_number, v):
     ul.a_out(0,A_channel_number,ao_range,v) # send the 16-bit value for the DAC
@@ -286,7 +285,7 @@ def shutter(): # turn all visible lines off
         set_laser_power(laser[0], laser[1], 0)
     
 # =============================================================================
-# metadata functions
+# METADATA FUNCTIONS
 # =============================================================================
 def log_append(string, channel=None, z=None):
     with open(r"%s/metadata.txt" %(folder), "a") as file:
@@ -299,41 +298,115 @@ def log_append(string, channel=None, z=None):
 
 
 # =============================================================================
-# MaiTai functions
+# MAITAI FUNCTIONS
 # =============================================================================
-def MaiTai_get_wavelength():
-    pass
+maitai = None                           # place holder for serial connection
 
-def MaiTai_set_wavelength(w):
-    if w < 1000 and w > 710:
-        pass
+def get_wavelength():
+    clear_maitai_buffer()
+    maitai.write(b"WAV?\n")
+    time.sleep(0.05)                     #important, need this delay
+    while maitai.in_waiting:
+        frommt = maitai.readline()
+        try:
+            wav = int(frommt[:-3])
+            return wav
+        except:
+            pass
+
+def set_wavelength(w):
+    w = int(w)
+    if w<710 or w>990:
+        print('wavelength not in correct range')
+        return False
+    command = "WAV %s\n" %w
+    maitai.write(command.encode('ascii'))
+    return True    
+
+def open_shutter():
+    command = "SHUT 1\n"
+    maitai.write(command.encode('ascii'))
+
+def close_shutter():
+    command = "SHUT 0\n"
+    maitai.write(command.encode('ascii'))
     
-def MaiTai_shutter(v):
-    if v==0: # close the shutter
-        pass
-    if v==1: # open the shutter
-        pass
+def get_shutter():
+    clear_maitai_buffer()
+    command = "SHUT?\n"
+    maitai.write(command.encode('ascii'))
+    s = maitai.readline()
+    return int(s)
 
-def MaiTai_warmup():
-    pass
+def clear_maitai_buffer():
+    maitai.readlines()
 
-def MaiTai_laser_stable():
-    pass
+def wait_for_shutter(open_close):
+    clear_maitai_buffer()
+    print('Maitai shutter set:', open_close)
+    for i in range(30):  # 3 second timeout
+        s = get_shutter()
+        if s == open_close: 
+            print('shutter state:', open_close, '(', i*100, 'ms )')
+            return 1
+        time.sleep(0.1)
+    return -1
 
-def MaiTai_shutdown():
-    pass
+def laser_stable(): # for use in laser tuning during timelapse (blocking)
+    # This function will not return for at least 1 second, could the 'sleep' be reduced?
+    clear_maitai_buffer()
+    count = 0
+    try:
+        while count < 2:
+            command = "READ:AHIS?\n"
+            maitai.write(command.encode('ascii'))
+            history = maitai.readline().decode('ascii').split(' ')
+            for i, item in enumerate(history):      # find first instance of '43'
+                if item[0:2] == '43': break
+            if history[i][2] == '1':                # test if stable
+                count = count + 1                   # if stable then increment counter and wait before next test
+                time.sleep(0.05)                          # this works for the thread but it can't be used from the main GUI due to blocking
+            else:
+                return False                        # if not then exit False
+        return True                                 # if counter reaches 2 exit True
+    except Exception as ex:
+        print('wait for laser exception:', ex)
+        return False
+
+def MaiTai_readout():
+    clear_maitai_buffer()
+    maitai.write(b"WAV?\n") # commanded wavelength
+    maitai.write(b"READ:WAV?\n") #actual wavelength?
+    maitai.write(b"READ:POW?\n")
+    time.sleep(0.05)
+    setpoint = maitai.readline().decode('ascii').strip()
+    actual = maitai.readline().decode('ascii').strip()
+    power = maitai.readline().decode('ascii').strip()
+    stable = laser_stable()
+    return setpoint, actual, power, stable
 
 
+def MaiTai_warm():
+    clear_maitai_buffer()
+    maitai.write(b"READ:PCTW?\n")
+    time.sleep(0.05)
+    temp = maitai.readline().decode('ascii').strip()
+    if temp[0:3] == '100':
+        return True, float(temp[:-1])
+    else:
+        return False, float(temp[:-1])
+    
 # =============================================================================
-# handle connections        
+# CONNECTIONS     
 # =============================================================================
 # connect all devices or go home, prevents messy situations when one device is not connected
-con_laser   = False
-con_filter  = False
-con_stage   = False
-con_DIL     = False
-con_cam     = False
-con_MaiTai  = False
+con_laser       = False
+con_filter      = False
+con_stage       = False
+con_DIL         = False
+con_cam         = False
+con_MaiTai      = False
+multi_photon    = False
 
 # close connections to any open devices, then exit script
 def close_all_coms(exception=None):     
@@ -359,16 +432,16 @@ def close_all_coms(exception=None):
         CAM.close()
         print("closed camera")
     if con_MaiTai:
-        MaiTai_shutter(0) # close the internal shutter
-        MaiTai.close()
+        close_shutter() # close the internal shutter
+        maitai.close()
         print("closed MaiTai")
     sys.exit()
     
 # =============================================================================
-# SCRIPT
+# MAIN IMAGING SCRIPT START
 # =============================================================================
 # make the parent folder
-folder = new_folder(root_location, sZ, name)
+folder = new_folder(root_location, name)
 print('Expt. saved to: ', folder)
 
 # load in vis-laser calibration
@@ -380,18 +453,26 @@ C_num = 0
 for item in lasers:  
     if item[0]:
         row = []
-        laser = vis_laser_dataframe[vis_laser_dataframe['wav.'] == item[4]] # find the calibration data for the chosen wavelength
-        # convert the power to DAC value using laser calibration
-        v = percent_to_16_bit(item[1], laser['minVal'].values[0], laser['maxVal'].values[0])
         row.append(C_num)                   #0,channel number
         row.append(item[3])                 #1,channel name
         row.append(item[4])                 #2,wavelength
-        row.append(item[1])                 #3,power (%)
+        if item[4] < 700:  row.append(item[1])                 #3,power (%)
+        else: row.append('N/A')                 
         row.append(item[2])                 #4,exposure
         row.append(item[5])                 #5,filter pos
-        row.append(laser['Ach'].values[0])  #6,Ach number
-        row.append(laser['Dch'].values[0])  #7,Dch number
-        row.append(v)                       #8,DAC value
+        if item[4] < 700:
+            # convert the power to DAC value using laser calibration
+            laser = vis_laser_dataframe[vis_laser_dataframe['wav.'] == item[4]] # find the calibration data for the chosen wavelength
+            v = percent_to_16_bit(item[1], laser['minVal'].values[0], laser['maxVal'].values[0])
+            row.append(laser['Ach'].values[0])  #6,Ach number
+            row.append(laser['Dch'].values[0])  #7,Dch number
+            row.append(v)                       #8,DAC value
+        else:
+            row.append('N/A')                      #6,Ach number
+            row.append('N/A')                      #7,Dch number
+            row.append('N/A')                      #8,DAC value   
+            multi_photon = True                 # MaiTai in use, turn on multiphoton mode
+                      
         # make subfolder for channel
         sub_folder = r"%s/C%s_%s" %(folder, row[0],row[1]) # channel number and name
         os.makedirs(sub_folder)
@@ -402,10 +483,27 @@ for item in lasers:
         C_num += 1
 
 # =============================================================================
-# SETUP HARDWARE
+#  HARDWARE CONNECTIONS
 # =============================================================================
 # connection error to any one device causes other devices to disconnect 
 # and the script to exit
+
+# MaiTai
+if multi_photon:
+    if(verbose):print('connecting hardware: ', 'MaiTai')
+    try:
+        maitai = serial.Serial(port='COM8', baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5, xonxoff=0, rtscts=0)
+        con_MaiTai = True
+        print("connected to MaiTai")
+        
+        # confirm laser warmed up
+        warm = MaiTai_warm()
+        if warm[0]:
+            print("MaiTai warmup complete")
+        else:
+            print("MaiTai warmup incomplete, ({}%)".format(warm[1]))
+            close_all_coms(exception = 'MaiTai laser not warmed up')
+    except Exception as e: close_all_coms(exception = e)
 
 # DIL control board 
 if(verbose):print('connecting hardware: ', 'DIL controller')
@@ -510,11 +608,19 @@ with open(r"%s/metadata.txt" %(folder), "w") as file: # populate metadata file
 # channels data format:     0: channel number, 1: name, 2: wavelength, 3: power , 4: exp, 5: filter, 
 #                           6: laserAnalog, 7: laserDigital, 8: laserDAC, 9: sub_folder_dir
 
+# =============================================================================
+# HARDWARE SETUP
+# =============================================================================
 for channel in channels:
     if(verbose):print('starting channel: ', channel[0])
     log_append("starting channel", channel = channel[0])
     t0channel = time.time()
-    
+
+# maitai setup
+    if multi_photon:   
+        if(verbose):print('set MaiTai wavelength: ', channel[2])
+        set_wavelength(channel[2])
+
 # filter setup
     if(verbose):print('set filter: ', channel[5])
     set_filter_position(channel[5]) # set first as is slowest device
@@ -531,7 +637,7 @@ for channel in channels:
     go_to_position(z=SPz + (((nZ-1)*sZ)/-2.0)) # start position minus half of the range
     set_stage_triggers('z', sZ)
     tstart = time.time()
-    clear_buffer()
+    clear_stage_buffer()
     while(stage_movement('z')==1): 
         if(time.time() > tstart + 2): break
         pass
@@ -543,11 +649,24 @@ for channel in channels:
     CAM.start_acquisition() 
     time.sleep(0.1)  # delay needed to make sure camera is ready before the DIL controler starts triggering
     
-# turn on laser
-    if(verbose):print('laser on: ', channel[2], channel[3])
-    set_laser_power(channel[6], channel[7], channel[8]) 
-    while(DIL.inWaiting()):
-        print("DIL", DIL.readline())
+# turn on visible laser (or tune the maitai)
+    if channel[2] < 700:                        # visible
+        if(verbose):print('laser on: ', channel[2], channel[3])
+        set_laser_power(channel[6], channel[7], channel[8]) 
+        while(DIL.inWaiting()):
+            print("DIL", DIL.readline())
+    if multi_photon and channel[2] > 700:        # MaiTai
+        print('waiting for MaiTai to tune')    
+        while True:
+                setpoint,actual,power,stable = MaiTai_readout()
+                if verbose: print('\t setpoint: {}, actual: {}, power: {}, stable: {}'.format(setpoint,actual,power,stable))
+                if stable: 
+                    print('\t setpoint: {}, actual: {}, power: {}, stable: {}'.format(setpoint,actual,power,stable))
+                    log_append('MaiTai status: setpoint: {}, actual: {}, power: {}'.format(setpoint,actual,power))
+                    break
+                time.sleep(0.2)
+        open_shutter()
+        wait_for_shutter(1) #wait for shutter to actually open (highly variable delay)
 
 # setup the DIL controller  
     if(verbose):print('start DIL: ', channel[4])  
@@ -559,7 +678,10 @@ for channel in channels:
     t0stack = time.time()
     if(verbose): print('hardware setup time: ', t0stack - t0channel)
     log_append('hardware setup time: {}'.format(t0stack - t0channel), channel=channel[0])
-    
+
+# =============================================================================
+# ACTUAL IMAGING LOOP
+# =============================================================================
     # z-stack loop
     for i in range(nZ):
         t0 = time.time() 
@@ -576,7 +698,6 @@ for channel in channels:
             log_append("inserted empty frame", channel=channel[0], z=i)
             continue
             
-        
         frame = CAM.read_oldest_image()
         if(frame is None): 
             print("empty frame error")
@@ -589,9 +710,13 @@ for channel in channels:
 
         if(verbose): print("__________ z=%s, frame capture time: %03f (ms)__________" %(i,(time.time() - t0)*1000.0)) 
         
-# turn off laser
-    set_laser_power(channel[6], channel[7], 0)  
-    
+# turn off laser or close shutter 
+    if channel[2] < 700:                         # visible
+        set_laser_power(channel[6], channel[7], 0)  
+    if multi_photon and channel[2] > 700:        # MaiTai 
+        close_shutter()
+
+# report timing stats    
     if(verbose): print("Stack time: ", time.time() - t0stack, "(s)") 
     log_append("Stack time: {} (s)".format( time.time() - t0stack))
     if(verbose): print("Channel time: ", time.time() - t0channel, "(s)") 

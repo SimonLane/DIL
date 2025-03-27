@@ -98,7 +98,7 @@ class MaiTai(SerialDevice):
         self.baud = baud
         SerialDevice.__init__(self, port=int(self.port), baudrate=self.baud, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE,xonxoff=True)
         self.waitTime = 0.5
-        print 'connected'
+        print('connected')
         self.modeNames = {'PCUR':'Current %', 'PPOW':'Green Power', 'POW':'IR Power'}
     
     def convertToFloat(self,returnString):
@@ -165,9 +165,9 @@ class MaiTai(SerialDevice):
         while self.getShutter() != val:
             self['SHUTter'] = (1 if val else 0)
         if val:
-            print 'Shutter OPEN'
+            print('Shutter OPEN')
         else:
-            print 'Shutter CLOSED'
+            print('Shutter CLOSED')
         
     def getPumpMode(self):
         """ returns pump mode of the laser """
@@ -181,7 +181,7 @@ class MaiTai(SerialDevice):
             if mode == self.modeNames[k] :
                 self['MODE'] = k
         newMode = self.getPumpMode()
-        print 'changedMode : ', oldMode, newMode
+        print('changedMode : ', oldMode, newMode)
         
     def getSystemIdentification(self):
         """Return a system identification string that contains 4 fields separated by commas."""
@@ -237,32 +237,32 @@ class MaiTai(SerialDevice):
             if warmedUP == 100.:
                 break
             else:
-                print ('System warming up. Currently at %f ' % warmedUP)
+                print('System warming up. Currently at %f ' % warmedUP)
                 time.sleep(self.waitTime)
 
         self.write('ON\r')
         time.sleep(self.waitTime)
-        print 'LASER IS ON'
+        print('LASER IS ON')
         
     def turnLaserOff(self):
         if self.getShutter():
             self.setShutter(False)
         self.write('OFF\r')
         time.sleep(self.waitTime)
-        print 'LASER IS OFF'
+        print('LASER IS OFF')
     
     def __getitem__(self, arg):  ## request a single value from the laser
-        #print "write", arg
+        #print("write", arg
         self.write("%s\r" % arg)
         ret = self.readPacket()
-        #print "   return:", ret
+        #print("   return:", ret
         return ret
         
     def __setitem__(self, arg, val):  ## set a single value on the laser
-        #print "write", arg, val
+        #print("write", arg, val
         self.write("%s %s\r" % (arg,str(val)))
         #ret = self.readPacket()
-        #print "   return:", ret
+        #print("   return:", ret
         #return ret
 
     def clearBuffer(self):
@@ -270,7 +270,7 @@ class MaiTai(SerialDevice):
         time.sleep(0.1)
         d += self.read()
         if len(d) > 0:
-            print "Mai Tai: Warning: tossed data ", repr(d)
+            print("Mai Tai: Warning: tossed data ", repr(d))
         return d
     
     def readPacket(self, expect=0, timeout=10, block=True):
@@ -284,7 +284,7 @@ class MaiTai(SerialDevice):
         while True:
             n = self.serial.inWaiting()
             s += self.read(n)
-            #print "read:", repr(s)
+            #print("read:", repr(s)
             if not block and len(s) == 0:
                 return
             
@@ -313,40 +313,36 @@ class MaiTai(SerialDevice):
 if __name__ == '__main__':
     maiTai = MaiTai(port=2) 
     #maiTai.setWavelength(910)
-    #print 'current wavelength : ', maiTai.getWavelength()
+    #print('current wavelength : ', maiTai.getWavelength()
     #maiTai.setWavelength(880)
-    #print 'current wavelength : ', maiTai.getWavelength()
+    #print('current wavelength : ', maiTai.getWavelength()
     
-    print 'relative Humidity : ', maiTai.getRelativeHumidity()
-    print 'current wavelength : ', maiTai.getWavelength()
+    print('relative Humidity : ', maiTai.getRelativeHumidity())
+    print('current wavelength : ', maiTai.getWavelength())
     
-    print 'output power : ', maiTai.getPower()
-    print 'pump power : ', maiTai.getPumpPower()
+    print('output power : ', maiTai.getPower())
+    print('pump power : ', maiTai.getPumpPower())
     
-    print 'shutter open? : ', maiTai.getShutter()
+    print('shutter open? : ', maiTai.getShutter())
     
-    print 'check status : ', maiTai.checkStatus()
+    print('check status : ', maiTai.checkStatus())
     
-    print 'turning laser on : ', 
-    maiTai.turnLaserOn()
-    print 'done'
-    print 'check status : ', maiTai.checkStatus()
-    print 'opening shutter : ',
-    maiTai.setShutter(True)
-    print 'done'
-    print 'check status : ', maiTai.checkStatus()
+    print('turning laser on : ', maiTai.turnLaserOn())
+    print('done')
+    print('check status : ', maiTai.checkStatus())
+    print('opening shutter : ', maiTai.setShutter(True))
+    print('done')
+    print('check status : ', maiTai.checkStatus())
     n=0
     while n < 10:
-        print 'relative Humidity : ', maiTai.getRelativeHumidity()
-        print 'output power : ', maiTai.getPower()
-        print 'pump power : ', maiTai.getPumpPower()
+        print('relative Humidity : ', maiTai.getRelativeHumidity())
+        print('output power : ', maiTai.getPower())
+        print('pump power : ', maiTai.getPumpPower())
         time.sleep(1)
         n+=1
     
-    print 'closing shutter : ', 
-    maiTai.setShutter(False)
-    print 'done'
-    print 'turning laser off : ', 
-    maiTai.turnLaserOff()
-    print 'done'
+    print('closing shutter : ', maiTai.setShutter(False))
+    print('done')
+    print('turning laser off : ', maiTai.turnLaserOff())
+    print('done')
             

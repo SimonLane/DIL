@@ -32,7 +32,7 @@ hpos        = 512            # ROI horizontal start position (pixel no.) range: 
 vsize       = 1024           # ROI vertical size for subarray (pixels) max 2048
 vpos        = 512            # ROI vertical start position (pixel no.) range: 0 - 2047, mid: 1023
 
-name         = "TetraSpek_200nm_100"
+name         = "Fluoresbrite 200nm_10^6_1"
 #name         = "730nm_Organoids_LabelFree_SP650_Only_3"
 #name         = "VisBank_488nm_100percent_520-40_Consuelo_3101_2_Full"
 #name         = "VisBank_561nm_100percent_600-40_Consuelo_1102_2_Full"
@@ -55,13 +55,6 @@ line_exposure = (peak_exposure_ratio*line_interval) # Time each sensor row is ex
 line_exp = line_exposure*1000 #convert line exposure to ms
 line_int = line_interval*1000000 #convert line interval to us
 live_view = [line_exp, line_int] #settings for live in ms and us respectively
-
-
-#line_exposure  = 4.296875e-03   # exposure per camera line (us)
-#cam_trigger_delay = 49 # Set camera delay (galvo steps)
-#line_time = 24.4e-06
-
-
 
 
 verbose = True     #for debugging
@@ -188,14 +181,6 @@ def new_folder(root, sZ, Exp, name):
 
     return folder
     
-#live_view = ('line exposure:', line_exposure*1000, 'ms', line_interval*1000000, 'us')
-   # units = 'ms'
-   # line_exp = line_exposure*1000 #convert line exposure from s to ms
-   # if(line_exp<1): #line exposure is sub ms, change units to us
-     #   line_exp = line_exp*1000
-     #   units = 'us'
-   # line_int = line_interval*1000000 #convert line interval from s to us
-   # print('line exposure:', line_exp, units), 'line interval:', line_int, 'us')
 # =============================================================================
 # SCRIPT
 # =============================================================================

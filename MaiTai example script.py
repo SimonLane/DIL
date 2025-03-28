@@ -122,8 +122,8 @@ while True:
 open_shutter()
 wait_for_shutter(1)
 
-#sleep(2)
-#close_shutter()
+sleep(2)
+close_shutter()
 wait_for_shutter(0) 
     
 maitai.close()

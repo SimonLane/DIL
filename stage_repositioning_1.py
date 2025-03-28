@@ -4,9 +4,20 @@ Created on Wed Jan 22 15:14:07 2025
 
 @author: mbp20
 """
-xPos = None
-yPos = None
-zPos = 4000
+#1
+xPos = -42.250
+yPos = 558.662
+zPos = -2830.000
+
+#2
+#xPos = -65.982
+#yPos = 1525.334
+#zPos = -2830.000
+
+#3
+#xPos = -40.276
+#yPos = 2564.122
+#zPos = -2830.000
 
 GO_COM = 'COM7'
 codec = 'utf8'

@@ -24,8 +24,8 @@ Created on Fri Mar 27 2025
 # TIMELAPSE SETTINGS
 # =============================================================================
 timelapse = True
-time_loop_interval  = 10 #(s)
-nTs = 10
+time_loop_interval  = 150 #(s)
+nTs = 500
 
 # =============================================================================
 # PARAMETERS - can edit
@@ -35,21 +35,20 @@ musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
 _405        =  [0,         100,        50,         'Hoechst',               405,         1]
-_488        =  [1,         100,        150,        '488nm',                 488,         2]
+_488        =  [0,         100,        150,        '200nm_Bead',                 488,         2]
 _561        =  [0,         100,        50,         'alexa 561',             561,         3]
 _660        =  [0,         100,        50,         '660nm',                 660,         4]
-_MaiTai1    =  [0,         10,         1000,       '2P NADH',               730,         1]
-_MaiTai2    =  [0,         10,         1000,       '2P FAD',                810,         2]
-_scatter    =  [0,         10,         50,         'scatter',               561,         6]
-# TODO - add MaiTai here too
+_MaiTai1    =  [1,         10,         1000,       '2P NADH',               730,         4]
+_MaiTai2    =  [1,         10,         1000,       '2P FAD',                875,         5]
+_scatter    =  [0,         4,          10,         'scatter',               488,         6]
 
 lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
 nZ          = 5        # Number of slices
-sZ          = 1      # slice separation (micrometers)
+sZ          = 0.5      # slice separation (micrometers)
 
 # experiment name
-name        = "SL timelapse test"
+name        = "MI_04_1"
 
 root_location = r"D:/Light_Sheet_Images/Data/"
 verbose = False     #for debugging
@@ -213,7 +212,7 @@ def trigger_mode(mode):
        
     
 def create_empty_frame(): # for when there is a camera timeout, or frame grab error, insert an ampty frame to prevent aborting the script
-    return np.zeros((2048, 2048), dtype=np.uint16)
+    return np.zeros((hsize, vsize), dtype=np.uint16)
 
 # =============================================================================
 # FILE HANDLING
@@ -711,7 +710,7 @@ for t in range(nTs):
                 log_append("camera timeout error", channel=channel[0], z=i)
                 frame = create_empty_frame() # create empty frame
                 # imageio.imwrite('%s\\z%04d.tif' %(channel[9],i), frame) #save empty frame
-                imageio.imwrite('%s\\z%04d.tif' %(channel[9],i), frame) #save empty frame
+                imageio.imwrite('%s\\t%04d_z%04d.tif' %(channel[9],t,i), frame) #save empty frame
                 log_append("inserted empty frame", channel=channel[0], z=i)
                 continue
                 
@@ -721,7 +720,7 @@ for t in range(nTs):
                 log_append("Null frame detected, inserted empty frame", channel=channel[0], z=i)
                 frame = create_empty_frame() # create empty frame
                 
-            imageio.imwrite('%s\\z%04d.tif' %(channel[9],i), frame)
+            imageio.imwrite('%s\\t%04d_z%04d.tif' %(channel[9],t,i), frame)
             while(DIL.inWaiting()):
                 print("DIL", DIL.readline())
     

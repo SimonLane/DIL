@@ -112,7 +112,7 @@ clear_buffer()
 
 print('MaiTai warm?:', MaiTai_warm())
 
-set_wavelength(800)
+set_wavelength(730)
 while True:
     setpoint,actual,power,stable = MaiTai_readout()
     print('setpoint: {}, actual: {}, power: {}, stable: {}'.format(setpoint,actual,power,stable))

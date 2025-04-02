@@ -24,8 +24,8 @@ Created on Fri Mar 27 2025
 # =============================================================================
 # TIMELAPSE SETTINGS
 # =============================================================================
-timelapse = True
-time_loop_interval  = 100 #(s)
+timelapse = False
+time_loop_interval  = 300 #(s)
 nTs = 500
 
 # =============================================================================
@@ -36,24 +36,24 @@ musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
 _405        =  [0,         100,        50,         'Hoechst',               405,         1]
-_488        =  [0,         100,        150,        '200nm_Bead',            488,         2]
-_561        =  [0,         100,        50,         'alexa 561',             561,         3]
+_488        =  [1,         100,        400,        'Calcein-AM',            488,         2]
+_561        =  [1,         40,         10,         'EthD-III',              561,         3]
 _660        =  [0,         100,        50,         '660nm',                 660,         4]
-_MaiTai1    =  [1,         10,         1000,       '2P NADH',               730,         4]
-_MaiTai2    =  [1,         10,         1000,       '2P FAD',                875,         5]
+_MaiTai1    =  [0,         10,         1000,       '2P NADH',               730,         4]
+_MaiTai2    =  [0,         10,         1000,       '2P FAD',                875,         5]
 _scatter    =  [0,         4,          10,         'scatter',               488,         6]
 
 lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 3        # Number of slices
-sZ          = 0.5      # slice separation (micrometers)
+nZ          = 525        # Number of slices
+sZ          = 0.268      # slice separation (micrometers)
 
 # experiment name
-name        = "MI_04_xyzt"
+name        = "MI_04_LD_3_2"
 
 root_location = r"D:/Light_Sheet_Images/Data/"
 verbose = False     #for debugging
-do_hot_pixel_correction = True
+do_hot_pixel_correction = False
 
 # ================ Filter Wheel =================================================
 # TODO - make this an external file so it can be loaded by different scripts/GUIs etc

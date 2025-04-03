@@ -18,7 +18,7 @@ Created on Fri Mar 27 2025
 + musical mode
 + MaiTai closed loop tuning
 + Timelapse
-+ multi-position
++ Multi-position
 # =============================================================================
 """
 
@@ -26,21 +26,20 @@ Created on Fri Mar 27 2025
 # MULTIPOSITION SETTINGS
 # =============================================================================
 
-do_multi_positon = True     # rue: load in multiple positions
+do_multi_positon = True     # True: load in multiple positions
                             # False: use the current stage position
                             
-position_list = [           # FORMAT: (X, Y, Z) (in microns)
-    (57.024, -1917.486, 5667.738),
-    (57.024, -1817.486, 5667.738)
+position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
+    (57.024, -1000.486, 5667.738),
+    # (57.024, 1000.486, 5667.738)
     ]
-
 
 # =============================================================================
 # TIMELAPSE SETTINGS
 # =============================================================================
-timelapse = True
-time_loop_interval  = 60 #(s)
-nTs = 1
+timelapse = False
+time_loop_interval  = 30 #(s)
+nTs = 3
 
 # =============================================================================
 # PARAMETERS - can edit
@@ -50,16 +49,16 @@ musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
 _405        =  [0,         100,        50,         'Hoechst',               405,         1]
-_488        =  [1,         100,        150,        '200nm_Bead',            488,         2]
-_561        =  [0,         100,        50,         'alexa 561',             561,         3]
+_488        =  [1,         100,        10,        '200nm_Bead',            488,         2]
+_561        =  [0,         100,        10,         'alexa 561',             561,         3]
 _660        =  [0,         100,        50,         '660nm',                 660,         4]
-_MaiTai1    =  [0,         10,         1000,       '2P NADH',               730,         4]
-_MaiTai2    =  [0,         10,         1000,       '2P FAD',                875,         5]
+_MaiTai1    =  [0,         10,         100,       '2P NADH',               730,         4]
+_MaiTai2    =  [0,         10,         100,       '2P FAD',                875,         5]
 _scatter    =  [0,         4,          10,         'scatter',               488,         6]
 
 lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 5        # Number of slices
+nZ          = 50        # Number of slices
 sZ          = 0.5      # slice separation (micrometers)
 
 # experiment name
@@ -96,11 +95,11 @@ hpos        = 512            # ROI horizontal start position (pixel no.) range: 
 vsize       = 1024           # ROI vertical size for subarray (pixels) max 2048
 vpos        = 512            # ROI vertical start position (pixel no.) range: 0 - 2047, mid: 1023
 
-stage_speed = 1000
+stage_speed = 4000
 stage_ac_dc = 250
 
 binning = 1
-
+stage_timeout_limit = 10
 peak_exposure_ratio = 100
 
 # Detection characteristics
@@ -135,24 +134,22 @@ from mcculw.enums import InterfaceType, DigitalIODirection
 # =============================================================================
 
 def clear_stage_buffer():
-    print('clear buffer', GO.inWaiting(), 'bytes')
     while GO.inWaiting() > 0: GO.read()
-    print('clear buffer', GO.inWaiting(), 'bytes')
     
-def stage_movement(axis): #tests stage to make sure movement is complete
+def stage_stable(axis): #tests stage to make sure movement is complete
     #get stage status
     GO.write(bytes("RS%s\n" %axis, codec))
     Status = GO.readline()[1:]
     # print("stage status raw:", Status)
     Status = Status.decode(codec).split(axis)[1][0]
     stage_OK = ["0","2","4"]
-    if(Status in stage_OK): return 0  #if stage is stationary
+    if(Status in stage_OK): return True  #if stage is stationary
     if(Status == "9"): 
         GO.write(bytes("RE%s\n" %axis, codec))
         Error = GO.readline().decode(codec).split(axis)[1][0]
         print('Stage Error code:', Error)
         return 2
-    else: return 1   # stage moving, or error
+    else: return False   # stage moving, or error
 
 def get_position(axis):
     GO.write(bytes("RP%s\n" %axis, codec))
@@ -188,6 +185,7 @@ def set_stage_speed(axis, stage_speed, stage_ac_dc):    # set speed and accelera
     GO.write(bytes("SP  %s%s;\r\n" %(axis, stage_speed), codec))
     GO.write(bytes("AC  %s%s;\r\n" %(axis, stage_ac_dc), codec))
     GO.write(bytes("DC  %s%s;\r\n" %(axis, stage_ac_dc), codec))
+
 
 # =============================================================================
 # CAMERA FUNCTIONS            
@@ -286,7 +284,6 @@ def get_filter_position():
                 
 def wait_for_filter(): #wait for the DIL (teensy) to report the filter wheel TTL signal
     for i in range(20): # 2 second polling timeout
-        
         while DIL.inWaiting():
             line = DIL.readline()
             if(b"Filter_True" in line):
@@ -300,7 +297,12 @@ def load_filters(filter_file_location):
     with open('%s/filters.txt' %(filter_file_location), 'r') as file:
         filters = [line.strip() for line in file]  # Read each line, strip the newline character, and store it in a list
     return filters
-        
+
+def clear_DIL_buffer():
+    if verbose:
+        while DIL.inWaiting(): print(DIL.readline())
+    else:
+        while DIL.inWaiting(): DIL.readline()
 # =============================================================================
 # VISIBLE LASER FUNCTIONS
 # =============================================================================
@@ -323,12 +325,13 @@ def shutter(): # turn all visible lines off
 # =============================================================================
 # METADATA FUNCTIONS
 # =============================================================================
-def log_append(string, channel=None, z=None):
+def log_append(string, channel=None, z=None, indent=0):
     with open(r"%s/metadata.txt" %(folder), "a") as file:
         now = datetime.datetime.now()
-        line = "%sh %sm %ss %sms: " %(now.hour,now.minute,now.second,int(now.microsecond/1000))
+        line = "%02dh %02dm %02ds %03dms: " %(now.hour,now.minute,now.second,int(now.microsecond/1000))
         if(not channel is None): line = line + "C%s " %(channel)
         if(not z is None): line = line + "z%04d,\t" %(channel)
+        for i in range(indent): line = line + "\t"
         line = line + string + "\n"
         file.write(line)
 
@@ -379,11 +382,11 @@ def clear_maitai_buffer():
 
 def wait_for_shutter(open_close):
     clear_maitai_buffer()
-    print('Maitai shutter set:', open_close)
+    if(verbose): print('\t\tMaitai shutter set:', open_close)
     for i in range(30):  # 3 second timeout
         s = get_shutter()
         if s == open_close: 
-            print('shutter state:', open_close, '(', i*100, 'ms )')
+            if(verbose): print('\t\tshutter state:', open_close, '(', i*100, 'ms )')
             return 1
         time.sleep(0.1)
     return -1
@@ -687,29 +690,33 @@ except Exception as e:
 # TIMELAPSE LOOP
 # =============================================================================
 start_time = 0
+if timelapse == False: nTs = 1
+
 for t in range(nTs):
-    # whilst waiting for the next timepoint:
-    # tune MaiTai 
-    if multi_photon: set_wavelength(first_MT_wav)    
+    if multi_photon: set_wavelength(first_MT_wav)   
     # go to first stage position
     set_stage_triggers_move()
     x,y,z = position_list[0]
     go_to_position(x=x, y=y, z=z)
     # move the filter wheel
     set_filter_position(channels[0][5])
-    
+    remaining_time = start_time + time_loop_interval - time.time()
+    if(remaining_time < 0 and remaining_time > -10000):
+        print('Warning: Timelapse loop does not leave enough time to complete imaging ({:.2f}s)'.format(remaining_time))
+    else: 
+        print('\rStarting timepoint {}'.format(t), end = '')
     while(time.time() < start_time + time_loop_interval): 
-        print('\rWaiting for timepoint {}: {:.1f} seconds remaining'.format(t,start_time + time_loop_interval - time.time()), end='')
+        print('\rStarting timepoint {}: {:.1f} seconds remaining'.format(t,start_time + time_loop_interval - time.time()), end='')
         time.sleep(0.1)
-    print()
+    print('\rStarting timepoint {}                                                           '.format(t))
     start_time = time.time()
-    log_append(f"starting timepoint {t}")
+    log_append(f"starting timepoint {t}", indent=1)
     
 # =============================================================================
 # STAGE POSITION LOOP
 # =============================================================================
     for p, position in enumerate(position_list):
-        print('setting stage', position)
+        print(f"\tStage Position {p}: {position}")
         # go to XY position, and central z position, no triggers
         set_stage_triggers_move()
         x,y,z = position
@@ -720,82 +727,88 @@ for t in range(nTs):
         # wait for stage movement to complete
         tstart = time.time() 
         clear_stage_buffer()
-        while(stage_movement('x')==1 or stage_movement('y')==1 or stage_movement('z')==1): 
-            if(time.time() > tstart + 10): break  # allow 10s before timeout
-            pass
-        
+        x_, y_, z_ = (False, False, False)
+        while(True):
+            if not x_: x_ = stage_stable('x')
+            if not y_: y_ = stage_stable('y')
+            if not z_: z_ = stage_stable('z')
+            
+            if x_ and y_ and z_: break
+            if(time.time() > tstart + stage_timeout_limit): # allow 5s before timeout
+                log_append("Stage position Timeout", indent=1)
+                print("Stage position Timeout")
+                break  
+            
+        log_append(f"Stage Position {p}: {position}", indent=1)
 # =============================================================================
 # HARDWARE SETUP - CHANNEL LOOP
 # =============================================================================
         for channel in channels:
-            if(verbose):print('starting channel: ', channel[0])
-            log_append("starting channel", channel = channel[0])
+            print('\t\tstarting channel: ', channel[0])
+            log_append("starting channel", channel = channel[0], indent=2)
             t0channel = time.time()
         
         # maitai setup
-            if multi_photon:   
+            if multi_photon and channel[2] > 700:   
                 if(verbose):print('set MaiTai wavelength: ', channel[2])
-                set_wavelength(channel[2])  # set first as is slowest device
+                set_wavelength(channel[2])
         
         # filter setup
             if(verbose):print('set filter: ', channel[5])
-            set_filter_position(channel[5]) 
-
+            set_filter_position(channel[5]) # set first as is slowest device
+            
+        # camera setup
+            if(verbose):print('setup camera: ', channel[4])
+            line_interval = (channel[4]/1000.0)/vsize   # Exposure time converted to s, divided by number of pixels
+            line_exposure = (peak_exposure_ratio*line_interval) # Time each sensor row is exposed (us) 
+            cam_settings(line_interval, line_exposure, bin_= binning, trigger='hardware')
+            CAM.setup_acquisition(mode="sequence", nframes = nZ)
+        
         # stage to start position. Perform z-stack centered around current position
             if(verbose):print('setup stage: d =', sZ)
             go_to_position(z=position[2] + (((nZ-1)*sZ)/-2.0)) # start position minus half of the range
             
             tstart = time.time()
             clear_stage_buffer()
-            while(stage_movement('z')==1): 
+            while(stage_stable('z')==False): 
                 if(time.time() > tstart + 2): break
                 pass
             set_stage_triggers_stack(sZ)
-            
         # check for filter position
             if(verbose):print('wait for filter: ')
             wait_for_filter()
-
+            
+            CAM.start_acquisition() 
+            time.sleep(0.1)  # delay needed to make sure camera is ready before the DIL controler starts triggering
+            
         # turn on visible laser (or tune the maitai)
             if channel[2] < 700:                        # visible
                 if(verbose):print('laser on: ', channel[2], channel[3])
                 set_laser_power(channel[6], channel[7], channel[8]) 
-                while(DIL.inWaiting()):
-                    print("DIL", DIL.readline())
+                clear_DIL_buffer()
             if multi_photon and channel[2] > 700:        # MaiTai
-                print('waiting for MaiTai to tune')    
+                print('\t\twaiting for MaiTai to tune')    
                 while True:
                         setpoint,actual,power,stable = MaiTai_readout()
-                        if verbose: print('\t setpoint: {}, actual: {}, power: {}, stable: {}'.format(setpoint,actual,power,stable))
+                        if verbose: print('\t\tsetpoint: {}, actual: {}, power: {}, stable: {}'.format(setpoint,actual,power,stable))
                         if stable: 
-                            print('\t setpoint: {}, actual: {}, power: {}, stable: {}'.format(setpoint,actual,power,stable))
-                            log_append('MaiTai status: setpoint: {}, actual: {}, power: {}'.format(setpoint,actual,power))
+                            print('\t\tsetpoint: {}, actual: {}, power: {}, stable: {}'.format(setpoint,actual,power,stable))
+                            log_append('MaiTai status: setpoint: {}, actual: {}, power: {}'.format(setpoint,actual,power), indent=2)
                             break
                         time.sleep(0.2)
                 open_shutter()
                 wait_for_shutter(1) #wait for shutter to actually open (highly variable delay)
         
-        # camera setup
-            if(verbose):print('setup camera: ', channel[4])
-            line_interval = (channel[4]/1000.0)/vsize   # Exposure time converted to s, divided by number of pixels
-            line_exposure = (peak_exposure_ratio*line_interval) # Time each sensor row is exposed (us) 
-            cam_settings(line_interval, line_exposure, bin_= binning, trigger='hardware')
-            CAM.setup_acquisition(mode="sequence", nframes = nZ)    
-            CAM.start_acquisition() 
-            time.sleep(0.1)  # delay needed to make sure camera is ready before the DIL controler starts triggering
-            
         # setup the DIL controller  
             if(verbose):print('start DIL: ', channel[4])  
             DIL.write(bytes("/stop;\r" , codec))
-
-# should musical command go before stack command?            
             DIL.write(bytes("/stack.%s.%s;\r" %(int(channel[4]),nZ), codec))
             if musical: DIL.write(bytes("/musical.1;\r", codec))
             else: DIL.write(bytes("/musical.0;\r", codec))
             
             t0stack = time.time()
             if(verbose): print('hardware setup time: ', t0stack - t0channel)
-            log_append('hardware setup time: {}'.format(t0stack - t0channel), channel=channel[0])
+            log_append('hardware setup time: {}'.format(t0stack - t0channel), indent=2)
 
 # =============================================================================
 # ACTUAL IMAGING LOOP
@@ -804,28 +817,26 @@ for t in range(nTs):
             for i in range(nZ):
                 t0 = time.time() 
                 
-                while(DIL.inWaiting()):
-                    print("DIL:", DIL.readline())
+                clear_DIL_buffer()
                 try:
                     CAM.wait_for_frame(timeout=5.0)
                 except:
                     print("camera timeout error caught")
-                    log_append("camera timeout error", channel=channel[0], z=i)
+                    log_append("camera timeout error", channel=channel[0], z=i, indent=2)
                     frame = create_empty_frame() # create empty frame
                     imageio.imwrite('%s\\P%02d\\%s\\t%04d_z%04d.tif' %(folder,p,channel[9],t,i), frame) #save empty frame
-                    log_append("inserted empty frame", channel=channel[0], z=i)
+                    log_append("inserted empty frame", channel=channel[0], z=i, indent=2)
                     continue
                     
                 frame = CAM.read_oldest_image()
                 if(frame is None): 
                     print("empty frame error")
-                    log_append("Null frame detected, inserted empty frame", channel=channel[0], z=i)
+                    log_append("Null frame detected, inserted empty frame", channel=channel[0], z=i, indent=2)
                     frame = create_empty_frame() # create empty frame
                 if do_hot_pixel_correction:
                     frame = hot_pixel_correction(frame, hot_pixel_list)    
                 imageio.imwrite('%s\\P%02d\\%s\\t%04d_z%04d.tif' %(folder,p,channel[9],t,i), frame)
-                while(DIL.inWaiting()):
-                    print("DIL", DIL.readline())
+                clear_DIL_buffer()
         
                 if(verbose): print("__________ z=%s, frame capture time: %03f (ms)__________" %(i,(time.time() - t0)*1000.0)) 
                 
@@ -837,16 +848,16 @@ for t in range(nTs):
         
         # report timing stats    
             if(verbose): print("Stack time: ", time.time() - t0stack, "(s)") 
-            log_append("Stack time: {} (s)".format( time.time() - t0stack))
-            if(verbose): print("Channel time: ", time.time() - t0channel, "(s)") 
-            log_append("Channel time: {} (s)".format( time.time() - t0channel))
-            
+            log_append("Stack time: {} (s)".format( time.time() - t0stack), indent=2)
+
             CAM.stop_acquisition()
             set_stage_triggers_move() # turn off stage triggers
             
             DIL.write(bytes("/stop;\r" , codec))
             DIL.write(bytes("/galvo.0;\r", codec)) # park the laser beam off sample
-    
+            
+            if(verbose): print("Channel time: ", time.time() - t0channel, "(s)") 
+            log_append("Channel time: {} (s)".format( time.time() - t0channel), indent=2)
 # =============================================================================
 # close connections
 # =============================================================================

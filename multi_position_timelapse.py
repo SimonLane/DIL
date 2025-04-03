@@ -18,7 +18,7 @@ Created on Fri Mar 27 2025
 + musical mode
 + MaiTai closed loop tuning
 + Timelapse
-
++ multi-position
 # =============================================================================
 """
 
@@ -29,7 +29,7 @@ Created on Fri Mar 27 2025
 do_multi_positon = True     # rue: load in multiple positions
                             # False: use the current stage position
                             
-position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
+position_list = [           # FORMAT: (X, Y, Z) (in microns)
     (57.024, -1917.486, 5667.738),
     (57.024, -1817.486, 5667.738)
     ]
@@ -53,7 +53,7 @@ _405        =  [0,         100,        50,         'Hoechst',               405,
 _488        =  [1,         100,        150,        '200nm_Bead',            488,         2]
 _561        =  [0,         100,        50,         'alexa 561',             561,         3]
 _660        =  [0,         100,        50,         '660nm',                 660,         4]
-_MaiTai1    =  [1,         10,         1000,       '2P NADH',               730,         4]
+_MaiTai1    =  [0,         10,         1000,       '2P NADH',               730,         4]
 _MaiTai2    =  [0,         10,         1000,       '2P FAD',                875,         5]
 _scatter    =  [0,         4,          10,         'scatter',               488,         6]
 
@@ -188,7 +188,6 @@ def set_stage_speed(axis, stage_speed, stage_ac_dc):    # set speed and accelera
     GO.write(bytes("SP  %s%s;\r\n" %(axis, stage_speed), codec))
     GO.write(bytes("AC  %s%s;\r\n" %(axis, stage_ac_dc), codec))
     GO.write(bytes("DC  %s%s;\r\n" %(axis, stage_ac_dc), codec))
-
 
 # =============================================================================
 # CAMERA FUNCTIONS            
@@ -691,8 +690,7 @@ start_time = 0
 for t in range(nTs):
     # whilst waiting for the next timepoint:
     # tune MaiTai 
-    if multi_photon: set_wavelength(first_MT_wav)
-    
+    if multi_photon: set_wavelength(first_MT_wav)    
     # go to first stage position
     set_stage_triggers_move()
     x,y,z = position_list[0]
@@ -725,6 +723,7 @@ for t in range(nTs):
         while(stage_movement('x')==1 or stage_movement('y')==1 or stage_movement('z')==1): 
             if(time.time() > tstart + 10): break  # allow 10s before timeout
             pass
+        
 # =============================================================================
 # HARDWARE SETUP - CHANNEL LOOP
 # =============================================================================
@@ -736,19 +735,12 @@ for t in range(nTs):
         # maitai setup
             if multi_photon:   
                 if(verbose):print('set MaiTai wavelength: ', channel[2])
-                set_wavelength(channel[2])
+                set_wavelength(channel[2])  # set first as is slowest device
         
         # filter setup
             if(verbose):print('set filter: ', channel[5])
-            set_filter_position(channel[5]) # set first as is slowest device
-            
-        # camera setup
-            if(verbose):print('setup camera: ', channel[4])
-            line_interval = (channel[4]/1000.0)/vsize   # Exposure time converted to s, divided by number of pixels
-            line_exposure = (peak_exposure_ratio*line_interval) # Time each sensor row is exposed (us) 
-            cam_settings(line_interval, line_exposure, bin_= binning, trigger='hardware')
-            CAM.setup_acquisition(mode="sequence", nframes = nZ)
-        
+            set_filter_position(channel[5]) 
+
         # stage to start position. Perform z-stack centered around current position
             if(verbose):print('setup stage: d =', sZ)
             go_to_position(z=position[2] + (((nZ-1)*sZ)/-2.0)) # start position minus half of the range
@@ -759,13 +751,11 @@ for t in range(nTs):
                 if(time.time() > tstart + 2): break
                 pass
             set_stage_triggers_stack(sZ)
+            
         # check for filter position
             if(verbose):print('wait for filter: ')
             wait_for_filter()
-            
-            CAM.start_acquisition() 
-            time.sleep(0.1)  # delay needed to make sure camera is ready before the DIL controler starts triggering
-            
+
         # turn on visible laser (or tune the maitai)
             if channel[2] < 700:                        # visible
                 if(verbose):print('laser on: ', channel[2], channel[3])
@@ -785,9 +775,20 @@ for t in range(nTs):
                 open_shutter()
                 wait_for_shutter(1) #wait for shutter to actually open (highly variable delay)
         
+        # camera setup
+            if(verbose):print('setup camera: ', channel[4])
+            line_interval = (channel[4]/1000.0)/vsize   # Exposure time converted to s, divided by number of pixels
+            line_exposure = (peak_exposure_ratio*line_interval) # Time each sensor row is exposed (us) 
+            cam_settings(line_interval, line_exposure, bin_= binning, trigger='hardware')
+            CAM.setup_acquisition(mode="sequence", nframes = nZ)    
+            CAM.start_acquisition() 
+            time.sleep(0.1)  # delay needed to make sure camera is ready before the DIL controler starts triggering
+            
         # setup the DIL controller  
             if(verbose):print('start DIL: ', channel[4])  
             DIL.write(bytes("/stop;\r" , codec))
+
+# should musical command go before stack command?            
             DIL.write(bytes("/stack.%s.%s;\r" %(int(channel[4]),nZ), codec))
             if musical: DIL.write(bytes("/musical.1;\r", codec))
             else: DIL.write(bytes("/musical.0;\r", codec))

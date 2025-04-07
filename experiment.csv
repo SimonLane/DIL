@@ -1,0 +1,4 @@
+Name,Active,Exposure,Power,Wavelength,Filter
+GFP,True,10,50,488,600+-20
+mCh,True,10,100,488,520+-20
+YFP,True,99,100,488,1

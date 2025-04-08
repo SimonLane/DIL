@@ -5,9 +5,9 @@ Created on Wed Jan 22 15:14:07 2025
 @author: mbp20
 """
 #1
-xPos = -42.250
-yPos = 558.662
-zPos = 4000
+xPos = None
+yPos = None
+zPos = 3500
 
 #2
 #xPos = -65.982

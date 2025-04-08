@@ -206,7 +206,7 @@ void z_slice(uint32_t exposure){ //do a single slice within a z-stack, exposure 
 
 //need to trigger camera 9 * line interval microseconds before g_start_step
   float line_interval = (exposure / 1024); //line interval = exposure/no. of pixel lines
-  float cam_delay_steps = ((9 * line_interval) / s_t) + 1; //how many galvo steps before g_enter_step to trigger CAM (plus one to ensure rounding up)
+  float cam_delay_steps = ((1 * line_interval) / s_t) + 1; //how many galvo steps before g_enter_step to trigger CAM (plus one to ensure rounding up)
   int cam_trigger_step = g_enter_step - int(cam_delay_steps);
   
   digitalWriteFast(CamOut,LOW);

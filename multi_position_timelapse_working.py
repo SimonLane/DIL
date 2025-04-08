@@ -30,43 +30,46 @@ do_multi_positon = True     # True: load in multiple positions
                             # False: use the current stage position
                             
 position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
-    (17.192, 1638.444, -2743.044),
-    (-36.246, 3514.550, -2680.000),
-    (78.220, 4502.116, -2670.318)
+    (152.260, -833.410, -2472.620),
+    (152.260, -833.410, -2467.620),
+    (152.260, -833.410, -2462.620)
+    #(99.808, 7448.988, -2813.670),
+    #(99.808, 7448.988, -2818.670)
+    #(-36.246, 3514.550, -2680.000),
+    #(78.220, 4502.116, -2670.318)
     ]
 
 # =============================================================================
 # TIMELAPSE SETTINGS
 # =============================================================================
 timelapse = True
-time_loop_interval  = 100 #(s)
+time_loop_interval  = 300 #(s)
 nTs = 100
 
 # =============================================================================
 # PARAMETERS - can edit
 # =============================================================================
-musical = False  
-
+musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
 _405        =  [0,         100,        50,         'Hoechst',               405,         1]
-_488        =  [0,         100,        50,        '488_AutoF',              488,         2]
-_561        =  [0,         100,        10,         'alexa 561',             561,         3]
+_488        =  [0,         100,        10,        'SMA_alexa-488',              488,         2]
+_561        =  [0,         100,        10,         'MUC5AC_alexa-568',             561,         3]
 _660        =  [0,         100,        50,         '660nm',                 660,         4]
-_MaiTai1    =  [1,         10,         750,       '730_2P_NADH',           730,         4]
-_MaiTai2    =  [1,         10,         750,       '875_2P_FAD',            875,         5]
+_MaiTai1    =  [1,         10,         2000,       '730_2P_DAPI',            730,         4]
+_MaiTai2    =  [1,         10,         2000,       '875_2P_FAD',             875,         5]
 _scatter    =  [0,         4,          10,         'scatter',               488,         6]
 
 lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 3        # Number of slices
-sZ          = 0.5      # slice separation (micrometers)
+nZ          = 3       # Number of slices
+sZ          = 1.0     # slice separation (micrometers)
 
 # experiment name
-name        = "MI_05_xyzt"
+name        = "MI_06_Organoids"
 
 root_location = r"D:/Light_Sheet_Images/Data/"
-verbose = False     #for debugging
+verbose = True     #for debugging
 do_hot_pixel_correction = False
 
 # ================ Filter Wheel =================================================
@@ -764,22 +767,30 @@ for t in range(nTs):
             line_exposure = (peak_exposure_ratio*line_interval) # Time each sensor row is exposed (us) 
             cam_settings(line_interval, line_exposure, bin_= binning, trigger='hardware')
             CAM.setup_acquisition(mode="sequence", nframes = nZ)
-        
+            
+            set_stage_triggers_stack(sZ)
+            
         # stage to start position. Perform z-stack centered around current position
             if(verbose):print('setup stage: d =', sZ)
             go_to_position(z=position[2] + (((nZ-1)*sZ)/-2.0)) # start position minus half of the range
             
             tstart = time.time()
             clear_stage_buffer()
-            while(stage_stable('z')==False): 
-                if(time.time() > tstart + 2): break
-                pass
+            while(True): 
+                if(time.time() > tstart + 2):
+                    print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Waiting for z timeout')
+                    break
+                ss = stage_stable('z')
+                if(ss==True): 
+                    print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> Z move complete', ss)
+                    break
+            print('stage stable')
             set_stage_triggers_stack(sZ)
         # check for filter position
             if(verbose):print('wait for filter: ')
             wait_for_filter()
             
-            CAM.start_acquisition() 
+            CAM.start_acquisition() # Option 1 - testing if acquisition start position affects multi-pos timelapse 
             time.sleep(0.1)  # delay needed to make sure camera is ready before the DIL controler starts triggering
             
         # turn on visible laser (or tune the maitai)
@@ -799,6 +810,9 @@ for t in range(nTs):
                         time.sleep(0.2)
                 open_shutter()
                 wait_for_shutter(1) #wait for shutter to actually open (highly variable delay)
+                
+            # CAM.start_acquisition() # Option 2 - testing if acquisition start position affects multi-pos timelapse 
+            # time.sleep(0.1)  # delay needed to make sure camera is ready before the DIL controler starts triggering
         
         # setup the DIL controller  
             if(verbose):print('start DIL: ', channel[4])  

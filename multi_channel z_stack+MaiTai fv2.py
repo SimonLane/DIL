@@ -28,20 +28,20 @@ musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
 _405        =  [0,         100,        50,         'Hoechst',               405,         1]
-_488        =  [1,         100,        400,        'Calcein-AM',            488,         2]
-_561        =  [1,         40,         10,         'EthD-III',              561,         3]
+_488        =  [1,         100,        30,        'P63_alexa-488',              488,         2]
+_561        =  [1,         100,        50,         'KRT5_alexa-568',             561,         3]
 _660        =  [0,         100,        50,         '660nm',                 660,         4]
-_MaiTai1    =  [0,         10,         1000,       '2P NADH',               730,         4]
-_MaiTai2    =  [0,         10,         1000,       '2P FAD',                875,         5]
+_MaiTai1    =  [1,         10,         100,       '730_2P_DAPI',            730,         4]
+_MaiTai2    =  [0,         10,         750,       '875_2P_FAD',             875,         5]
 _scatter    =  [0,         4,          10,         'scatter',               488,         6]
 
 lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 525        # Number of slices
-sZ          = 0.268      # slice separation (micrometers)
+nZ          = 56        # Number of slices
+sZ          = 2.68      # slice separation (micrometers)
 
 # experiment name
-name        = "MI_04_LD_1"
+name        = "Organoids_CS_1_1_test"
 
 root_location = r"D:/Light_Sheet_Images/Data/"
 verbose = False     #for debugging
@@ -73,8 +73,8 @@ hpos        = 512            # ROI horizontal start position (pixel no.) range: 
 vsize       = 1024           # ROI vertical size for subarray (pixels) max 2048
 vpos        = 512            # ROI vertical start position (pixel no.) range: 0 - 2047, mid: 1023
 
-stage_speed = 20
-stage_ac_dc = 5
+stage_speed = 4000
+stage_ac_dc = 1000
 
 binning = 1
 

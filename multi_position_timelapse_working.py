@@ -52,13 +52,13 @@ nTs = 100
 musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
-_405        =  [0,         100,        50,         'Hoechst',               405,         1]
-_488        =  [0,         100,        10,        'SMA_alexa-488',              488,         2]
-_561        =  [0,         100,        10,         'MUC5AC_alexa-568',             561,         3]
-_660        =  [0,         100,        50,         '660nm',                 660,         4]
-_MaiTai1    =  [1,         10,         2000,       '730_2P_DAPI',            730,         4]
-_MaiTai2    =  [1,         10,         2000,       '875_2P_FAD',             875,         5]
-_scatter    =  [0,         4,          10,         'scatter',               488,         6]
+_405        =  [0,         100,        50,         'Hoechst',                  405,         1]
+_488        =  [0,         100,        10,         'SMA_alexa-488',            488,         2]
+_561        =  [0,         100,        10,         'MUC5AC_alexa-568',         561,         3]
+_660        =  [0,         100,        50,         '660nm',                    660,         4]
+_MaiTai1    =  [1,         10,         2000,       '730_2P_NADH',              730,         4]
+_MaiTai2    =  [1,         10,         2000,       '875_2P_FAD',               875,         5]
+_scatter    =  [0,         4,          10,         'scatter',                  488,         6]
 
 lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 

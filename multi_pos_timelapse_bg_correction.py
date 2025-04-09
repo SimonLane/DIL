@@ -29,17 +29,12 @@ Created on Fri Mar 27 2025
 # MULTIPOSITION SETTINGS
 # =============================================================================
 
-do_multi_positon = True     # True: load in multiple positions
+do_multi_positon = False     # True: load in multiple positions
                             # False: use the current stage position
                             
 position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
     (152.260, -833.410, -2472.620),
-    (152.260, -833.410, -2467.620),
-    (152.260, -833.410, -2462.620)
-    #(99.808, 7448.988, -2813.670),
-    #(99.808, 7448.988, -2818.670)
-    #(-36.246, 3514.550, -2680.000),
-    #(78.220, 4502.116, -2670.318)
+
     ]
 
 # =============================================================================
@@ -47,7 +42,7 @@ position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
 # =============================================================================
 timelapse = True
 time_loop_interval  = 300 #(s)
-nTs = 100
+nTs = 1
 
 # =============================================================================
 # CHANNELS SETTINGS
@@ -56,20 +51,20 @@ musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
 _405        =  [0,         100,        50,         'Hoechst',               405,         1]
-_488        =  [0,         100,        10,        'SMA_alexa-488',              488,         2]
-_561        =  [0,         100,        10,         'MUC5AC_alexa-568',             561,         3]
+_488        =  [1,         100,        100,        'SMA_alexa-488',          488,         2]
+_561        =  [0,         100,        10,         'MUC5AC_alexa-568',      561,         3]
 _660        =  [0,         100,        50,         '660nm',                 660,         4]
-_MaiTai1    =  [1,         10,         2000,       '730_2P_DAPI',            730,         4]
-_MaiTai2    =  [1,         10,         2000,       '875_2P_FAD',             875,         5]
+_MaiTai1    =  [0,         10,         2000,       '730_2P_DAPI',            730,         4]
+_MaiTai2    =  [0,         10,         2000,       '875_2P_FAD',             875,         5]
 _scatter    =  [0,         4,          10,         'scatter',               488,         6]
 
 lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 3       # Number of slices
+nZ          = 10       # Number of slices
 sZ          = 1.0     # slice separation (micrometers)
 
 # experiment name
-name        = "MI_06_Organoids"
+name        = "SL test"
 
 root_location = r"D:/Light_Sheet_Images/Data/"
 verbose = False     #for debugging
@@ -77,7 +72,7 @@ verbose = False     #for debugging
 bg_images = True            # Capture n_bg_images Background images for each channel, store to folder
                             # Average the images and store the result in the dataframe for each channel
                             # Use BG image instead of blank frame when frames are missed
-auto_correction = True      # if True: Apply BG subtraction to acquired images automatically
+auto_correction = False      # if True: Apply BG subtraction to acquired images automatically
 n_bg_images = 10
 preview = True              # Display the center image in each stack to the console
 
@@ -255,16 +250,18 @@ def frame_grab(t, p, channel, z, background = False, auto_bg_sub = False):
     except:
         print("camera timeout error caught")
         log_append("camera timeout error", channel=channel[0], z=z, indent=2)
-        if background: return False
+        if background: return False, None
         frame = channel[10] # insert BG image
         log_append("inserted empty frame", channel=channel[0], z=z, indent=2)
         
-    if auto_bg_sub: frame = frame - channel[10]    
-    
-    if background:  imageio.imwrite("{}/background/{:02d}".format(folder, channel[0]), frame)
-    else:           imageio.imwrite("{}\\{:02d}\\{}\\t{:04d}_z{:04d}.tif".format(folder,p,channel[9],t,z), frame)
+    if auto_bg_sub: 
+        frame = frame - channel[10]   # subtract background image
+        frame = np.clip(frame, 0, None).astype(np.uint16)
+        
+    if background:  imageio.imwrite("{}/background/{}/bg{:02d}.tif".format(folder, channel[9], z), frame) 
+    else:           imageio.imwrite("{}\\P{:02d}\\{}\\t{:04d}_z{:04d}.tif".format(folder,p,channel[9],t,z), frame)
     clear_DIL_buffer()
-    return frame
+    return True, frame
 
 def display_frame(frame, p, channel, t, z):
     plt.figure()
@@ -551,9 +548,6 @@ for item in lasers:
         
         if(verbose): print(row[:-1]) # print out channel vital info (not directory)
         C_num += 1
-
-if do_multi_positon == False:
-    position_list = [(get_position(axis='x'),get_position(axis='y'),get_position(axis='z'))] # use current stage position as the only position
     
 # create position, channel folder structure
 for p, position in enumerate(position_list): 
@@ -563,7 +557,6 @@ for p, position in enumerate(position_list):
     for channel in channels:
         c_folder = "{}/{}".format(p_folder, channel[9]) # channel name
         os.makedirs(c_folder)
-
 
 # =============================================================================
 # METADADA FILE CREATION
@@ -702,6 +695,10 @@ except Exception as e:
     log_append("GO Stage connection error")
     close_all_coms(exception = e)
 
+if do_multi_positon == False:
+    position_list = [(get_position(axis='x'),get_position(axis='y'),get_position(axis='z'))] # use current stage position as the only position
+
+
 # CAMERA
 if(verbose):print('connecting hardware: ', 'camera')
 try:
@@ -712,6 +709,7 @@ try:
 except Exception as e: 
     log_append("Camera connection error")
     close_all_coms(exception = e)
+
 
 
 # channels data format:     0: channel number, 1: name, 2: wavelength, 3: power , 4: exp, 5: filter, 
@@ -728,7 +726,7 @@ if bg_images:
         bg_aggregate = np.zeros((hsize, vsize), dtype=np.uint16) 
         n_frames = 0
         # make channel sub-folder
-        c_folder = "{}/background/{:02d}".format(folder, channel[0]) # channel number
+        c_folder = "{}/background/{}".format(folder, channel[9]) # channel number
         os.makedirs(c_folder)
         # set up filter 
         print('collecting BG images for C=', channel[0], channel[1])
@@ -749,8 +747,8 @@ if bg_images:
         
         for z in range(n_bg_images):
             t0 = time.time() 
-            frame = frame_grab(0,0,channel,z)
-            if frame != False:
+            valid, frame = frame_grab(0,0,channel,z, background = True)
+            if valid:
                 bg_aggregate = bg_aggregate + frame
                 n_frames += 1
             print("___BG_______ z=%s, frame capture time: %03f (ms)__________" %(z,(time.time() - t0)*1000.0)) 
@@ -903,7 +901,7 @@ for t in range(nTs):
             # z-stack loop
             for z in range(nZ):
                 t0 = time.time() 
-                frame = frame_grab(t,p,channel,z, auto_bg_sub = auto_correction)
+                valid, frame = frame_grab(t,p,channel,z, auto_bg_sub = auto_correction)
                 if z == int(nZ/2) and preview: display_frame(frame, p, channel, t, z)
                 if(verbose): print("__________ z=%s, frame capture time: %03f (ms)__________" %(z,(time.time() - t0)*1000.0)) 
                 

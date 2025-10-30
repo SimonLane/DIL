@@ -30,8 +30,17 @@ do_multi_positon = True     # True: load in multiple positions
                             # False: use the current stage position
                             
 position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
-    (57.024, -1000.486, 5667.738),
-    # (57.024, 1000.486, 5667.738)
+   
+  
+   (292.120, 547.882, -2600.276),
+   (292.124, 1511.902, -2607.588),
+   (329.362, 2469.906, -2589.710),
+   (345.204, 3416.300, -2561.750),
+   (350.218, 4358.404, -2528.306),
+   (357.068, 5372.508, -2476.784), 
+   (426.736, 6346.398, -2484.434),
+   (408.372, 7270.962, -2465.268),
+   (506.232, 8204.528, -2441.238)
     ]
 
 # =============================================================================
@@ -49,8 +58,8 @@ musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
 _405        =  [0,         100,        50,         'Hoechst',               405,         1]
-_488        =  [1,         100,        1000,        '200nm_Bead',            488,         2]
-_561        =  [0,         100,        10,         'alexa 561',             561,         3]
+_488        =  [1,         100,        10,        'alexa-488',            488,         2]
+_561        =  [1,         100,        10,         'alexa-561',             561,         3]
 _660        =  [0,         100,        50,         '660nm',                 660,         4]
 _MaiTai1    =  [0,         10,         100,       '2P NADH',               730,         4]
 _MaiTai2    =  [0,         10,         100,       '2P FAD',                875,         5]
@@ -58,8 +67,8 @@ _scatter    =  [0,         4,          10,         'scatter',               488,
 
 lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 10        # Number of slices
-sZ          = 0.5      # slice separation (micrometers)
+nZ          = 1000        # Number of slices
+sZ          = 0.268      # slice separation (micrometers)
 
 # experiment name
 name        = "SL_test_hp on"

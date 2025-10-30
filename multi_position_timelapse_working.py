@@ -159,6 +159,11 @@ def get_position(axis):
     GO.write(bytes("RP%s\n" %axis, codec))
     return float(GO.readline().decode(codec).split(axis)[1][:-1])
 
+def get_room_temp():
+    # using the X axis temp as a proxy for room temp, since the stage rarely moves and is under no load
+    GO.write(bytes("RTx\n", codec))
+    return float(GO.readline().decode(codec).split('x')[1][:-1])
+
 def go_to_position(x=None, y=None, z=None):
     string = "GT"
     if(x != None): 

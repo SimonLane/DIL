@@ -29,20 +29,31 @@ Created on Fri Mar 27 2025
 # MULTIPOSITION SETTINGS
 # =============================================================================
 
-do_multi_positon = False     # True: load in multiple positions
+do_multi_positon = True     # True: load in multiple positions
                             # False: use the current stage position
                             
 position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
-    (152.260, -833.410, -2472.620),
 
-    ]
+
+      #(511, -1783, -1968),
+      #(651.406, 2243.748, -1568.036),
+
+   (816.876, 3888.662, 3127.684)
+    #(470.170, 608.230, 3094.250), #P0_0
+    #(528.484, 1608.112, 3062.274), #P1_0
+    #(481.368, 3557.150, 3019.818), #P2_0
+    #(416.956, 4544.694, 2995.462), #P0_1
+    #(512.912, 5512.458, 2983.384), #P1_1
+    #(507.722, 6393.912, 2986.186) #P2_1
+    
+   ]
 
 # =============================================================================
 # TIMELAPSE SETTINGS
 # =============================================================================
-timelapse = True
-time_loop_interval  = 300 #(s)
-nTs = 1
+timelapse = False
+time_loop_interval  = 120 #(s)
+nTs = 300
 
 # =============================================================================
 # CHANNELS SETTINGS
@@ -50,29 +61,28 @@ nTs = 1
 musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
-_405        =  [0,         100,        50,         'Hoechst',               405,         1]
-_488        =  [1,         100,        100,        'SMA_alexa-488',          488,         2]
-_561        =  [0,         100,        10,         'MUC5AC_alexa-568',      561,         3]
-_660        =  [0,         100,        50,         '660nm',                 660,         4]
-_MaiTai1    =  [0,         10,         2000,       '730_2P_DAPI',            730,         4]
-_MaiTai2    =  [0,         10,         2000,       '875_2P_FAD',             875,         5]
-_scatter    =  [0,         4,          10,         'scatter',               488,         6]
+_405        =  [0,         100,        10,      '405_scatter',                  405,             6]
+_488        =  [1,         4,        10,      '488_Scatter',      488,             6]
+_561        =  [0,         100,        10,        '561_scatter',                561,             2]
+_660        =  [0,         100,        450,       '6_L',                       660,              6]
+_MaiTai1    =  [0,         10,         1000,                    'NADH',                                730,             4]
+_MaiTai2    =  [0,         10,         2000,                   'FAD',                         875,             5]
+_scatter    =  [0,         4,          10,       '488_scatter',         488,                     6]
 
 lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 10       # Number of slices
-sZ          = 1.0     # slice separation (micrometers)
+nZ          = 750     # Number of slices
+sZ          = 0.268    # slice separation (micrometers)
 
 # experiment name
-name        = "SL test"
-
+name        = "LMI_02_1_post_scatter" #"PSF_Vis_Both_MT_L_0_50nm"
 root_location = r"D:/Light_Sheet_Images/Data/"
 verbose = False     #for debugging
 
-bg_images = True            # Capture n_bg_images Background images for each channel, store to folder
+bg_images = True           # Capture n_bg_images Background images for each channel, store to folder
                             # Average the images and store the result in the dataframe for each channel
                             # Use BG image instead of blank frame when frames are missed
-auto_correction = False      # if True: Apply BG subtraction to acquired images automatically
+auto_correction = True      # if True: Apply BG subtraction to acquired images automatically
 n_bg_images = 10
 preview = True              # Display the center image in each stack to the console
 
@@ -93,7 +103,7 @@ GO_COM              = 'COM7'
 DIL_COM             = 'COM6'
 Filter_COM          = 'COM5'
 Vis_COM             = 'COM9'
-MaiTai_COM          = 'COM4'
+MaiTai_COM          = 'COM10'
 codec               = 'utf8'
 board_num           = 0             # Visible laser board number
 calibrations = "Calibration files" # local folder containing calibration files (lasers and filters)
@@ -611,7 +621,7 @@ with open(r"%s/metadata.txt" %(folder), "w") as file: # populate metadata file
 if multi_photon:
     if(verbose):print('connecting hardware: ', 'MaiTai')
     try:
-        maitai = serial.Serial(port='COM8', baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5, xonxoff=0, rtscts=0)
+        maitai = serial.Serial(port='COM10', baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5, xonxoff=0, rtscts=0)
         con_MaiTai = True
         print("connected to MaiTai") 
         log_append("MaiTai connection")

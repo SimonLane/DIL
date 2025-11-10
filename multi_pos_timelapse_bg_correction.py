@@ -37,11 +37,11 @@ position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
 
       #(511, -1783, -1968),
       #(651.406, 2243.748, -1568.036),
-
-   (816.876, 3888.662, 3127.684)
-    #(470.170, 608.230, 3094.250), #P0_0
-    #(528.484, 1608.112, 3062.274), #P1_0
-    #(481.368, 3557.150, 3019.818), #P2_0
+    (431.238, -4067.832, 3147), #P0
+   # (551.174, 2753.946, 3151.026), #P1
+   # (250.752, 3734.990, 3320.070) #P2
+    
+    #(481.368, 3557.150, 3019.818), 
     #(416.956, 4544.694, 2995.462), #P0_1
     #(512.912, 5512.458, 2983.384), #P1_1
     #(507.722, 6393.912, 2986.186) #P2_1
@@ -51,9 +51,9 @@ position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
 # =============================================================================
 # TIMELAPSE SETTINGS
 # =============================================================================
-timelapse = False
-time_loop_interval  = 120 #(s)
-nTs = 300
+timelapse = True
+time_loop_interval  = 300 #(s)
+nTs = 100
 
 # =============================================================================
 # CHANNELS SETTINGS
@@ -61,21 +61,21 @@ nTs = 300
 musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
-_405        =  [0,         100,        10,      '405_scatter',                  405,             6]
-_488        =  [1,         4,        10,      '488_Scatter',      488,             6]
-_561        =  [0,         100,        10,        '561_scatter',                561,             2]
+_405        =  [0,         100,        250,      '405_Hoechst33342',           405,             1]
+_488        =  [1,         100,        1000,                       '488_500-650',          488,             5]
+_561        =  [0,         100,        10,        '561_scatter',               561,             2]
 _660        =  [0,         100,        450,       '6_L',                       660,              6]
-_MaiTai1    =  [0,         10,         1000,                    'NADH',                                730,             4]
-_MaiTai2    =  [0,         10,         2000,                   'FAD',                         875,             5]
-_scatter    =  [0,         4,          10,       '488_scatter',         488,                     6]
+_MaiTai1    =  [0,         10,         250,                    'NADH',                   730,             4]
+_MaiTai2    =  [0,         10,         250,                   'FAD',                     875,             5]
+_scatter    =  [0,         4,          10,                    '488_scatter',             488,             6]
 
 lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 750     # Number of slices
-sZ          = 0.268    # slice separation (micrometers)
+nZ          = 311     # Number of slices
+sZ          = 2.0    # slice separation (micrometers)
 
 # experiment name
-name        = "LMI_02_1_post_scatter" #"PSF_Vis_Both_MT_L_0_50nm"
+name        = "Well_Bleaching" #"PSF_Vis_Both_MT_L_0_50nm"
 root_location = r"D:/Light_Sheet_Images/Data/"
 verbose = False     #for debugging
 
@@ -103,7 +103,7 @@ GO_COM              = 'COM7'
 DIL_COM             = 'COM6'
 Filter_COM          = 'COM5'
 Vis_COM             = 'COM9'
-MaiTai_COM          = 'COM10'
+MaiTai_COM          = 'COM13'
 codec               = 'utf8'
 board_num           = 0             # Visible laser board number
 calibrations = "Calibration files" # local folder containing calibration files (lasers and filters)
@@ -172,6 +172,10 @@ def stage_stable(axis): #tests stage to make sure movement is complete
 def get_position(axis):
     GO.write(bytes("RP%s\n" %axis, codec))
     return float(GO.readline().decode(codec).split(axis)[1][:-1])
+
+def get_stage_triggers():
+    GO.write(bytes("TI z\n", codec))
+    print("Stage z trigger report: ", (GO.readline().decode(codec)))
 
 def go_to_position(x=None, y=None, z=None):
     string = "GT"
@@ -621,7 +625,7 @@ with open(r"%s/metadata.txt" %(folder), "w") as file: # populate metadata file
 if multi_photon:
     if(verbose):print('connecting hardware: ', 'MaiTai')
     try:
-        maitai = serial.Serial(port='COM10', baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5, xonxoff=0, rtscts=0)
+        maitai = serial.Serial(port='COM13', baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5, xonxoff=0, rtscts=0)
         con_MaiTai = True
         print("connected to MaiTai") 
         log_append("MaiTai connection")
@@ -849,6 +853,7 @@ for t in range(nTs):
             CAM.setup_acquisition(mode="sequence", nframes = nZ)
             
             set_stage_triggers_stack(sZ)
+            get_stage_triggers()
             
         # stage to start position. Perform z-stack centered around current position
             if(verbose):print('setup stage: d =', sZ)

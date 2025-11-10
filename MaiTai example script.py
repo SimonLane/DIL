@@ -105,7 +105,7 @@ def MaiTai_warm():
         return False, float(temp[:-1])
     
     
-maitai =  serial.Serial(port='COM10', baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5, xonxoff=0, rtscts=0)
+maitai =  serial.Serial(port='COM13', baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5, xonxoff=0, rtscts=0)
 sleep(0.5)
 
 clear_buffer()

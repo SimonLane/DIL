@@ -30,9 +30,9 @@ do_multi_positon = True     # True: load in multiple positions
                             # False: use the current stage position
                             
 position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
-    (152.260, -833.410, -2472.620),
-    (152.260, -833.410, -2467.620),
-    (152.260, -833.410, -2462.620)
+    (418.590, -86.960, 3086.940),
+    (551.174, 2753.946, 3131.026),
+    (250.752, 3734.990, 3270.070)
     #(99.808, 7448.988, -2813.670),
     #(99.808, 7448.988, -2818.670)
     #(-36.246, 3514.550, -2680.000),
@@ -42,7 +42,7 @@ position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
 # =============================================================================
 # TIMELAPSE SETTINGS
 # =============================================================================
-timelapse = True
+timelapse = False
 time_loop_interval  = 300 #(s)
 nTs = 100
 
@@ -56,17 +56,17 @@ _405        =  [0,         100,        50,         'Hoechst',                  4
 _488        =  [0,         100,        10,         'SMA_alexa-488',            488,         2]
 _561        =  [0,         100,        10,         'MUC5AC_alexa-568',         561,         3]
 _660        =  [0,         100,        50,         '660nm',                    660,         4]
-_MaiTai1    =  [1,         10,         2000,       '730_2P_NADH',              730,         4]
-_MaiTai2    =  [1,         10,         2000,       '875_2P_FAD',               875,         5]
+_MaiTai1    =  [1,         10,         500,       '730_2P_NADH',              730,         4]
+_MaiTai2    =  [1,         10,         500,       '875_2P_FAD',               875,         5]
 _scatter    =  [0,         4,          10,         'scatter',                  488,         6]
 
 lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 3       # Number of slices
-sZ          = 1.0     # slice separation (micrometers)
+nZ          = 20       # Number of slices
+sZ          = 2.0     # slice separation (micrometers)
 
 # experiment name
-name        = "MI_06_Organoids"
+name        = "LMI_06_Organoids"
 
 root_location = r"D:/Light_Sheet_Images/Data/"
 verbose = True     #for debugging

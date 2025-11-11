@@ -194,11 +194,15 @@ void parseCommand(String command) {
     filter_ready_flag = false;
 
   } else if (word == "stop") {
-    Serial.println("stopping");
+    digitalWriteFast(L405, 0);
+    digitalWriteFast(L488, 0);
+    digitalWriteFast(L520, 0);
+    digitalWriteFast(L638, 0);
+    set_galvo(park);
     z_stacking  = false;
     scanning    = false;
-    set_galvo(park);
-    
+    Serial.println("stopping");
+
   } else if (word == "405") {
     Serial.print("405 laser ");Serial.println(values[0]);
     digitalWrite(L405,values[0]);

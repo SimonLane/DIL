@@ -194,14 +194,14 @@ void parseCommand(String command) {
     filter_ready_flag = false;
 
   } else if (word == "stop") {
-    digitalWrite(L405,0);
-    digitalWrite(L488,0);
-    digitalWrite(L520,0);
-    digitalWrite(L638,0);
-    laser_pin = MaiTai;
+    digitalWriteFast(L405, 0);
+    digitalWriteFast(L488, 0);
+    digitalWriteFast(L520, 0);
+    digitalWriteFast(L638, 0);
+    set_galvo(park);
     z_stacking  = false;
     scanning    = false;
-    set_galvo(park);
+
     Serial.println("stopping");
 
   } else if (word == "405") {

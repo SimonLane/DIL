@@ -160,7 +160,14 @@ void parseCommand(String command) {
     //set up for z-stack
     exposure    = values[0];
     nZ          = values[1];
-    Serial.print("entering z-stack mode, nZ: ");
+    if     (values[2] == "405")   {laser_pin = L405;}
+    else if(values[2] == "488")   {laser_pin = L488;}
+    else if(values[2] == "520")   {laser_pin = L520;}
+    else if(values[2] == "638")   {laser_pin = L638;}
+    else                          {laser_pin = MaiTai;}
+    Serial.print("entering z-stack mode, wav: ");
+    Serial.print(values[2]);
+    Serial.print("; nZ: ");
     Serial.print(nZ);
     Serial.print("; exp: ");
     Serial.println(exposure);
@@ -176,7 +183,7 @@ void parseCommand(String command) {
   } else if (word == "scan") {
     Serial.println("entering scan mode");
     exposure  = values[0];
-    if(values[1] == "405")        {laser_pin = L405;}
+    if     (values[1] == "405")   {laser_pin = L405;}
     else if(values[1] == "488")   {laser_pin = L488;}
     else if(values[1] == "520")   {laser_pin = L520;}
     else if(values[1] == "638")   {laser_pin = L638;}

@@ -252,7 +252,12 @@ void parseCommand(String command) {
     Serial.print("520 laser: ");Serial.println(values[0]);
     setLaser(2,values[0]/100);
 
-  } else if (word == "640") {
+  } else if (word == "638") {
+    Serial.print("638 laser: ");Serial.println(values[0]);
+    setLaser(3,values[0]/100);
+  }  
+
+  } else if (word == "shutter") {
     Serial.print("640 laser: ");Serial.println(values[0]);
     setLaser(3,values[0]/100);
   }  

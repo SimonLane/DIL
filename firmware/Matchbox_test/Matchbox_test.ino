@@ -32,7 +32,7 @@ const byte L488          = 24;
 const byte L520          = 4;
 const byte L638          = 5;
 const byte MaiTai        = 7;
-int    laser_pin     = MaiTai;
+int    laser_pin         = MaiTai;
 
 //LED power
 uint16_t LED_power = 20;  //0-50 is useable range
@@ -194,11 +194,16 @@ void parseCommand(String command) {
     filter_ready_flag = false;
 
   } else if (word == "stop") {
-    Serial.println("stopping");
+    digitalWrite(L405,0);
+    digitalWrite(L488,0);
+    digitalWrite(L520,0);
+    digitalWrite(L638,0);
+    laser_pin = MaiTai;
     z_stacking  = false;
     scanning    = false;
     set_galvo(park);
-    
+    Serial.println("stopping");
+
   } else if (word == "405") {
     Serial.print("405 laser ");Serial.println(values[0]);
     digitalWrite(L405,values[0]);
@@ -214,6 +219,14 @@ void parseCommand(String command) {
   } else if (word == "638") {
     Serial.print("638 laser ");Serial.println(values[0]);
     digitalWrite(L638,values[0]);
+    
+  } else if (word == "Shutter") {
+    Serial.print("All visible lasers Off ");Serial.println();
+    laser_pin = MaiTai;
+    digitalWrite(L405,0);
+    digitalWrite(L488,0);
+    digitalWrite(L520,0);
+    digitalWrite(L638,0);
     
   } else if (word == "galvo") {
     Serial.print("galvo to ");Serial.println(values[0]);

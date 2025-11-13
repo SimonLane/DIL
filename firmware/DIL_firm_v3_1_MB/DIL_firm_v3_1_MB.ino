@@ -1,10 +1,6 @@
-// scanning and z-stacking working?
-
-
-
 #include <Arduino.h>
-const String firmware            = "3.1 (M_1024, Matchbox)";      // firmware version
-
+#include <cstring>
+const String firmware            = "3.1 (M_1024, matchbox test)";      // firmware version
 
 #include <SPI.h>
 
@@ -23,22 +19,21 @@ const byte Zi     = 28;
 //digital I/O
 const byte CamOut               = 40;
 const byte CamIn                = 22;
-const byte trigger_LED          = 23;
+const byte temp_monitor         = A9;
 const byte trigger_Filter       = 16;
 const byte test_output          = 35;
 
-
-//Laser 
-#include "imxrt.h"
-
-constexpr float PWM_FREQ_TARGET = 3.56e6;  // ≈ actual with 6-bit
-constexpr float F_BUS_EXPECTED  = 228e6;   // Bus freq at 912 MHz CPU
-constexpr uint16_t MOD = 63;               // 6-bit resolution (0–63)
+const byte L405          = 25;
+const byte L488          = 24;
+const byte L520          = 4;
+const byte L638          = 5;
+const byte MaiTai        = 7;
+int    laser_pin         = MaiTai;
 
 //LED power
 uint16_t LED_power = 20;  //0-50 is useable range
 
-//Flags
+
 volatile bool stage_ready_flag  = true;     // flag denoting when stage moves are complete
 volatile bool camera_ready_flag = true;     // flag denotes when camera has returned a 'readout complete' signal
 volatile bool filter_ready_flag = false;    // flag denotes when filter has returned a 'movement complete' signal
@@ -61,7 +56,24 @@ uint16_t g_enter_step           = 174;       // galvo step at which beam enters 
 uint16_t g_exit_step            = 861;      // galvo step at which beam leaves the camera FOV
 uint16_t g_steps_per_FOV        = (g_exit_step - g_enter_step); // number of steps on the galvo that corresponds to the full FOV of the camera
 
-void setup() {
+float temp_offset = 0.0;
+
+
+void setup() {  
+  
+  pinMode(L405, OUTPUT);
+  pinMode(L488, OUTPUT);
+  pinMode(L520, OUTPUT);
+  pinMode(L638, OUTPUT);
+  pinMode(MaiTai, OUTPUT);
+  digitalWrite(L405, 0);
+  digitalWrite(L488, 0);
+  digitalWrite(L520, 0);
+  digitalWrite(L638, 0);
+
+  analogReadResolution(12);
+  analogWriteResolution(8);
+
   Serial.begin(115200);
   while (!Serial) {;}  // Wait for Serial to be ready
   Serial.println("DIL ready to receive commands.");
@@ -78,7 +90,6 @@ void setup() {
   pinMode(Xi, INPUT_PULLUP);
   pinMode(Yi, INPUT_PULLUP);
   pinMode(Zi, INPUT_PULLUP);
-
   attachInterrupt(digitalPinToInterrupt(Zi), z_move_complete, RISING);
   
   pinMode(CamIn, INPUT);
@@ -90,78 +101,25 @@ void setup() {
   pinMode(trigger_Filter, INPUT);
   attachInterrupt(digitalPinToInterrupt(trigger_Filter), filter_ready, RISING);
   
-  pinMode(trigger_LED, OUTPUT);
-  digitalWrite(trigger_LED, HIGH);
+  pinMode(temp_monitor, INPUT);
   
   pinMode(test_output, OUTPUT);
   digitalWrite(test_output, HIGH);
 
   set_galvo(park);
 
-//~~~~~~~~~~~~~~~ LASER FAST PWM SETUP CODE ~~~~~~~~~~~~~~~//
-  CORE_PIN24_CONFIG = 1;  // PWM2_A0
-  CORE_PIN25_CONFIG = 1;  // PWM2_B0
-  CORE_PIN4_CONFIG  = 1;  // PWM2_B2
-  CORE_PIN5_CONFIG  = 1;  // PWM2_A2
-
-  CCM_CCGR4 |= CCM_CCGR4_FLEXPWM2(CCM_CCGR_ON);  // enable clock
-
-  // Disable before setup
-  FLEXPWM2_MCTRL |= FLEXPWM_MCTRL_CLDOK(0xF);
-  FLEXPWM2_MCTRL &= ~FLEXPWM_MCTRL_RUN(0xF);
-
-  // Configure two submodules: SM0 and SM2
-  for (int sm : {0, 2}) {
-    auto &S = FLEXPWM2.SM[sm];
-    S.INIT  = 0;
-    S.VAL0  = 0;
-    S.VAL1  = MOD;  // Period
-
-    // start 50% duty for A/B
-    uint16_t half = MOD / 2;
-    S.VAL2 = 0;
-    S.VAL3 = half;  // channel A
-    S.VAL4 = 0;
-    S.VAL5 = half;  // channel B
-
-    S.CTRL2 = FLEXPWM_SMCTRL2_CLK_SEL(0);  // use IPBus clock
-    S.CTRL  = FLEXPWM_SMCTRL_PRSC(0);      // prescaler /1
-  }
-// Enable outputs
-  FLEXPWM2_OUTEN =
-      FLEXPWM_OUTEN_PWMA_EN((1 << 0) | (1 << 2)) |
-      FLEXPWM_OUTEN_PWMB_EN((1 << 0) | (1 << 2));
-
-  // Load and run
-  FLEXPWM2_MCTRL |= FLEXPWM_MCTRL_LDOK((1 << 0) | (1 << 2));
-  FLEXPWM2_MCTRL |= FLEXPWM_MCTRL_RUN((1 << 0) | (1 << 2));
-  
-//~~~~~~~~~~~~~~~ end LASER FAST PWM SETUP ~~~~~~~~~~~~~~~//
 }
 
 void z_move_complete()  {stage_ready_flag    = true;}
 void camera_ready()     {camera_ready_flag   = true;}
 void filter_ready()     {filter_ready_flag   = true;}
 
-// --- helper: set duty (0.0–1.0) ---
-void setLaser(int channel, float duty) {
-  // channel mapping:
-  // 0: pin24 (SM0A)
-  // 1: pin25 (SM0B)
-  // 2: pin5  (SM2A)
-  // 3: pin4  (SM2B)
-  int sm = (channel < 2) ? 0 : 2;
-  bool isB = (channel == 1 || channel == 3);
-  auto &S = FLEXPWM2.SM[sm];
-  uint16_t val = (uint16_t)(duty * (MOD + 1));
-  if (isB) {
-    S.VAL4 = 0;
-    S.VAL5 = val;
-  } else {
-    S.VAL2 = 0;
-    S.VAL3 = val;
-  }
-  FLEXPWM2_MCTRL |= FLEXPWM_MCTRL_LDOK(1 << sm);  // load safely
+int getLaserPin(const String& wavelength) {
+    if (wavelength == "405") return L405;
+    if (wavelength == "488") return L488;
+    if (wavelength == "520") return L520;
+    if (wavelength == "638") return L638;
+    return MaiTai;  // Unknown wavelength, e.g. NIR, direct  to a non-connected pin
 }
 
 void parseCommand(String command) {
@@ -207,7 +165,12 @@ void parseCommand(String command) {
     //set up for z-stack
     exposure    = values[0];
     nZ          = values[1];
-    Serial.print("entering z-stack mode, nZ: ");
+
+    laser_pin = getLaserPin(values[2]);
+
+    Serial.print("entering z-stack mode, wav: ");
+    Serial.print(values[2]);
+    Serial.print("; nZ: ");
     Serial.print(nZ);
     Serial.print("; exp: ");
     Serial.println(exposure);
@@ -222,7 +185,12 @@ void parseCommand(String command) {
   
   } else if (word == "scan") {
     Serial.println("entering scan mode");
+    
     exposure  = values[0];
+    laser_pin = getLaserPin(values[1]);
+    Serial.println(exposure);
+    Serial.println(laser_pin);
+
     z_stacking  = false;
     scanning  = true;
   
@@ -235,33 +203,56 @@ void parseCommand(String command) {
     filter_ready_flag = false;
 
   } else if (word == "stop") {
-    Serial.println("stopping");
+    digitalWriteFast(L405, 0);
+    digitalWriteFast(L488, 0);
+    digitalWriteFast(L520, 0);
+    digitalWriteFast(L638, 0);
+    set_galvo(park);
     z_stacking  = false;
     scanning    = false;
-    set_galvo(park);
-  
+
+    Serial.println("stopping");
+
   } else if (word == "405") {
-    Serial.print("405 laser: ");Serial.println(values[0]);
-    setLaser(0,values[0]/100);
-
+    Serial.print("405 laser ");Serial.println(values[0]);
+    digitalWrite(L405,values[0]);
+    
   } else if (word == "488") {
-    Serial.print("488 laser: ");Serial.println(values[0]);
-    setLaser(1,values[0]/100);
-
+    Serial.print("488 laser ");Serial.println(values[0]);
+    digitalWrite(L488,values[0]);
+    
   } else if (word == "520") {
-    Serial.print("520 laser: ");Serial.println(values[0]);
-    setLaser(2,values[0]/100);
-
-  } else if (word == "640") {
-    Serial.print("640 laser: ");Serial.println(values[0]);
-    setLaser(3,values[0]/100);
-  }  
-
+    Serial.print("520 laser ");Serial.println(values[0]);
+    digitalWrite(L520,values[0]);
+    
+  } else if (word == "638") {
+    Serial.print("638 laser ");Serial.println(values[0]);
+    digitalWrite(L638,values[0]);
+    
+  } else if (word == "Shutter") {
+    Serial.print("All visible lasers Off ");Serial.println();
+    laser_pin = MaiTai;
+    digitalWrite(L405,0);
+    digitalWrite(L488,0);
+    digitalWrite(L520,0);
+    digitalWrite(L638,0);
+    
   } else if (word == "galvo") {
     Serial.print("galvo to ");Serial.println(values[0]);
     z_stacking  = false;
     scanning    = false;
     set_galvo(values[0]);
+
+  } else if (word == "temp") {
+    Serial.print("Temp:");
+    int rawValue = analogRead(temp_monitor);         // Read raw ADC value
+    float voltage = (rawValue / 4095.0) * 3.3;    // Convert to voltage
+    float temperatureC = (voltage / 5.0) * 60.0;  // Convert to temperature
+    Serial.print(rawValue);
+    Serial.print(", ");
+    Serial.print(voltage, 3);
+    Serial.print(", ");
+    Serial.println(temperatureC, 1);
 
   } else {
     Serial.println("Unknown command");
@@ -284,19 +275,22 @@ void z_slice(uint32_t exposure){ //do a single slice within a z-stack, exposure 
   float line_interval = (exposure / 1024); //line interval = exposure/no. of pixel lines
   float cam_delay_steps = ((1 * line_interval) / s_t) + 1; //how many galvo steps before g_enter_step to trigger CAM (plus one to ensure rounding up)
   int cam_trigger_step = g_enter_step - int(cam_delay_steps);
-  
+  // digitalWriteFast(laser_pin, HIGH);
   digitalWriteFast(CamOut,LOW);
   //SCAN
   for(int g=0;g<1024;g++){
-    if(g==cam_trigger_step)     {digitalWriteFast(CamOut, HIGH); camera_ready_flag = false; }  // trigger camera 9 * line interval (us) before beam enters FOV
-    
+    if(g==cam_trigger_step)     {
+      digitalWriteFast(laser_pin, HIGH);
+      digitalWriteFast(CamOut, HIGH); 
+      camera_ready_flag = false; }  // trigger camera 9 * line interval (us) before beam enters FOV
+    if(g==g_exit_step){digitalWriteFast(laser_pin, LOW);}
     while(micros() < prev_micros + s_t_int){} //delay for step time
     prev_micros = micros();
     set_galvo(g);
 
   }
   digitalWriteFast(CamOut, LOW);
-
+  // digitalWriteFast(laser_pin, LOW);
   if(z_stacking && musical == false){
     //start stage movement
     digitalWriteFast(Zo,HIGH);
@@ -350,10 +344,7 @@ void loop() {
     filter_ready_flag = false;
     Serial.println("Filter_True");
   }
-  
 }
-
-
 
 void set_galvo(uint16_t value){
   value = (value & 0x3ff) << 2;

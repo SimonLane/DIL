@@ -1,5 +1,5 @@
-wavelength,min_current,max_current,max_power_mw
-405,22,114,31
-488,16,81,20
-520,32,160,20
-638,42,212,40
+wavelength,number,min_current,max_current,max_power_left_mw,max_power_right_mw
+405,4,22,114,17,15
+488,3,16,81,11,9
+520,2,32,160,12,8
+638,1,42,212,22,18

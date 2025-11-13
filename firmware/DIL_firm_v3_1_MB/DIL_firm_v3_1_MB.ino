@@ -1,6 +1,6 @@
 #include <Arduino.h>
 #include <cstring>
-const String firmware            = "3.1 (M_1024, matchbox test)";      // firmware version
+const String firmware            = "3.2 (M_1024, matchbox test)";      // firmware version
 
 #include <SPI.h>
 

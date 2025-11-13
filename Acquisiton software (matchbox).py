@@ -3,13 +3,13 @@
 Created on Fri Mar 27 2025
 @author: sil1r12
 
-# compatible with firmware v2 (musical)
+# compatible with firmware v3 (matchbox)
 
 # =============================================================================
 # Z-Stack SCRIPT
++ MATCHBOX laser integration
 + folder management, channel sub-folders
 + closed loop for stage and filter movement
-+ visible laser integration
 + filter integration
 + hardware connection error management
 + camera timeout error handling

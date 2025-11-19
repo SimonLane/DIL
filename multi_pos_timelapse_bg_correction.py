@@ -3,10 +3,11 @@
 Created on Fri Mar 27 2025
 @author: sil1r12
 
-# compatible with firmware v2 (musical)
+# compatible with firmware v3 (matchbox)
 
 # =============================================================================
 # Z-Stack SCRIPT
++ MATCHBOX laser integration
 + folder management, channel sub-folders
 + closed loop for stage and filter movement
 + visible laser integration
@@ -61,24 +62,29 @@ nTs = 100
 musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
-_405        =  [0,         100,        250,      '405_Hoechst33342',           405,             1]
-_488        =  [1,         100,        1000,                       '488_500-650',          488,             5]
-_561        =  [0,         100,        10,        '561_scatter',               561,             2]
-_660        =  [0,         100,        450,       '6_L',                       660,              6]
-_MaiTai1    =  [0,         10,         250,                    'NADH',                   730,             4]
-_MaiTai2    =  [0,         10,         250,                   'FAD',                     875,             5]
-_scatter    =  [0,         4,          10,                    '488_scatter',             488,             6]
+_405        =  [1,         100,        500,         'Hoechst',                  405,         1]
+_488        =  [1,         100,        500,         'SMA_alexa-488',            488,         2]
+_520        =  [1,         100,        500,         'MUC5AC_alexa-568',         520,         3]
+_638        =  [1,         100,        500,         '660nm',                    638,         4]
+_MaiTai1    =  [0,         10,         500,         '730_2P_NADH',              730,         4]
+_MaiTai2    =  [0,         10,         500,         '875_2P_FAD',               875,         5]
+_scatter    =  [0,         4,          10,          'scatter',                  488,         6]
 
-lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
+lasers = [_405,_488,_520,_638,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 311     # Number of slices
-sZ          = 2.0    # slice separation (micrometers)
+nZ          = 20       # Number of slices
+sZ          = 2.0     # slice separation (micrometers)
 
 # experiment name
-name        = "Well_Bleaching" #"PSF_Vis_Both_MT_L_0_50nm"
+name        = "Test_new_laser"
+
+# beams in use
+left_beam = True
+right_beam = True
+
 root_location = r"D:/Light_Sheet_Images/Data/"
 verbose = False     #for debugging
-
+do_hot_pixel_correction = False
 bg_images = True           # Capture n_bg_images Background images for each channel, store to folder
                             # Average the images and store the result in the dataframe for each channel
                             # Use BG image instead of blank frame when frames are missed
@@ -102,7 +108,7 @@ filter_names = [
 GO_COM              = 'COM7'
 DIL_COM             = 'COM6'
 Filter_COM          = 'COM5'
-Vis_COM             = 'COM9'
+Vis_COM             = 'COM12'
 MaiTai_COM          = 'COM13'
 codec               = 'utf8'
 board_num           = 0             # Visible laser board number
@@ -126,7 +132,7 @@ tube_lens_f             = 200   # mm
 pixel_physical_size     = 6.5   # microns
 
 stage_timeout = 5 # max time to wait for z axis positioning
-
+hot_pixel_list = [[635,731]] # list of pixels to be corrected, NOTE, can't use edge pixels!
 # =============================================================================
 #  IMPORTS
 # =============================================================================
@@ -134,7 +140,7 @@ stage_timeout = 5 # max time to wait for z axis positioning
 from pylablib.devices import DCAM
 
 # general 
-import datetime, os, time ,serial, sys, re
+import datetime, os, time ,serial, sys, re, csv
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -142,10 +148,6 @@ import matplotlib.pyplot as plt
 import imageio
 import numpy as np
 
-#imports for USB-3103 laser control board
-from mcculw import ul
-from mcculw.device_info import DaqDeviceInfo
-from mcculw.enums import InterfaceType, DigitalIODirection
 
 # =============================================================================
 # STAGE FUNCTIONS
@@ -172,6 +174,11 @@ def stage_stable(axis): #tests stage to make sure movement is complete
 def get_position(axis):
     GO.write(bytes("RP%s\n" %axis, codec))
     return float(GO.readline().decode(codec).split(axis)[1][:-1])
+
+def get_room_temp():
+    # using the X axis temp as a proxy for room temp, since the stage rarely moves and is under no load
+    GO.write(bytes("RTx\n", codec))
+    return float(GO.readline().decode(codec).split('x')[1][:-1])
 
 def get_stage_triggers():
     GO.write(bytes("TI z\n", codec))
@@ -207,7 +214,6 @@ def set_stage_speed(axis, stage_speed, stage_ac_dc):    # set speed and accelera
     GO.write(bytes("SP  %s%s;\r\n" %(axis, stage_speed), codec))
     GO.write(bytes("AC  %s%s;\r\n" %(axis, stage_ac_dc), codec))
     GO.write(bytes("DC  %s%s;\r\n" %(axis, stage_ac_dc), codec))
-
 
 # =============================================================================
 # CAMERA FUNCTIONS            
@@ -254,7 +260,13 @@ def trigger_mode(mode):
        CAM.set_attribute_value('output_trigger_active[0]', 1)      # edge
        CAM.set_attribute_value('output_trigger_delay[0]', 0)      # 
        CAM.set_attribute_value('output_trigger_period[0]', 0.001)      # 
-
+          
+def hot_pixel_correction(frame, pixel_list):
+    for pixel in pixel_list:
+        neighborhood = frame[pixel[0]-1:pixel[0]+2, pixel[1]-1:pixel[1]+2]
+        surrounding = np.delete(neighborhood.flatten(), 4) # remove central px
+        frame[pixel] = int(surrounding.mean())
+    return frame
 
 def frame_grab(t, p, channel, z, background = False, auto_bg_sub = False):
     clear_DIL_buffer()
@@ -265,11 +277,11 @@ def frame_grab(t, p, channel, z, background = False, auto_bg_sub = False):
         print("camera timeout error caught")
         log_append("camera timeout error", channel=channel[0], z=z, indent=2)
         if background: return False, None
-        frame = channel[10] # insert BG image
+        frame = channel[7] # insert BG image
         log_append("inserted empty frame", channel=channel[0], z=z, indent=2)
         
     if auto_bg_sub: 
-        frame = frame - channel[10]   # subtract background image
+        frame = frame - channel[7]   # subtract background image
         frame = np.clip(frame, 0, None).astype(np.uint16)
         
     if background:  imageio.imwrite("{}/background/{}/bg{:02d}.tif".format(folder, channel[9], z), frame) 
@@ -303,7 +315,6 @@ def filter_setup():
     Filter.write(b"trig=1\r") # 0: TTL input trigger, (low trigger), 1: TTL output, high when position reached
     set_filter_position(channels[0][5]) # set to filter required for first channel
     Filter.write(b"sensors=0\r") # 0:turn off internal IR sensor when not moving
-
 
 def set_filter_position(p):
     DIL.write(bytes("/filter;\r" , codec)) #setup DIL controller to listen for filter TTL signal
@@ -346,21 +357,57 @@ def clear_DIL_buffer():
 # =============================================================================
 # VISIBLE LASER FUNCTIONS
 # =============================================================================
-def set_laser_power(A_channel_number, D_channel_number, v):
-    ul.a_out(0,A_channel_number,ao_range,v) # send the 16-bit value for the DAC
-    if(D_channel_number > 0):
-        if(v>0): ul.d_bit_out(0, port.type, D_channel_number, 1)
-    
-def percent_to_16_bit(p, _min, _max): #percentage, min 16-bit value, max 16-bit value    
-    if(p==0):  v=0
-    else:        
-        m = (_max-_min)/(100) # map percentage to 16-bit value
-        v = int((m*p) + _min)
-    return v
+def set_laser_power(wavelength: int, percent_power: float):
+    if wavelength not in laser_calibration:
+        raise ValueError(f"Unsupported wavelength: {wavelength}")
 
-def shutter(): # turn all visible lines off
-    for laser in [[0,-1],[2,2],[4,4],[6,6]]: #analog and digital pins for each visible laser
-        set_laser_power(laser[0], laser[1], 0)
+    if not (0 <= percent_power <= 100):
+        raise ValueError("percent_power must be between 0 and 100")
+    
+    calib       = laser_calibration[wavelength]
+    index       = calib["index"]
+    current, est_power = estimate_laser_power(wavelength, percent_power)
+    
+    command = f"Lc{index} {current}"
+    print(f"Sending command: {command}  (≈ {est_power:.1f} mW)")
+    VIS.write(command.encode())
+
+def estimate_laser_power(wav, percent):
+    calib       = laser_calibration[wav]
+    min_current = calib["min_current"]
+    max_current = calib["max_current"]
+    
+    max_power_left = calib["max_power_left_mw"] if left_beam else  1
+    max_power_right = calib["max_power_right_mw"] if right_beam else 1
+    
+    # Linear mapping for current
+    current = int(min_current + ((percent / 100.0) * (max_current - min_current)))
+    current = min(max_current, current) # double check that max_current is not exceded
+    # Linear mapping for estimated output power
+    est_power = (percent / 100.0) * max_power_left * max_power_right
+    return current, est_power
+
+def load_laser_calibration():
+    calibration = {}
+    with open(f"{calibrations}//laser_calibration.csv", newline='') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                wl = int(row["wavelength"])
+                calibration[wl] = {
+                    "min_current": float(row["min_current"]),
+                    "max_current": float(row["max_current"]),
+                    "max_power_left_mw": float(row["max_power_left_mw"]),
+                    "max_power_right_mw": float(row["max_power_right_mw"]),
+                }
+            except (KeyError, ValueError) as e:
+                print(f"Skipping invalid row: {row} ({e})")
+
+    return calibration
+
+
+def shutter(): # turn all visible lines off via TTL
+    DIL.write(bytes("/Shutter;\r" , codec))
     
 # =============================================================================
 # METADATA FUNCTIONS
@@ -494,8 +541,12 @@ def close_all_coms(exception=None):
         print(exception)   
     if con_laser: 
         shutter()
-        ul.release_daq_device(board_num)
-        print("shuttered and closed visible lasers")
+        VIS.write("L1D".encode())
+        VIS.write("L2D".encode())
+        VIS.write("L3D".encode())
+        VIS.write("L4D".encode())
+        VIS.close()
+        print("shuttered and disabled visible lasers")
     if con_filter:  
         Filter.close()
         print("closed filter wheel")
@@ -524,7 +575,7 @@ folder = new_folder(root_location, name)
 print('Expt. saved to: ', folder)
 
 # load in vis-laser calibration
-vis_laser_dataframe = pd.read_csv("%s/LaserCalibration.txt" %(calibrations), header=0, index_col=0, sep ='\t') 
+laser_calibration = load_laser_calibration()
 channels = []
 first_MT_wav = 0 # place holder for first wavelength to start tuning to, to save time
 
@@ -537,27 +588,18 @@ for item in lasers:
         row.append(C_num)                       #0,channel number
         row.append(item[3])                     #1,channel name
         row.append(item[4])                     #2,wavelength
-        if item[4] < 700: row.append(item[1])   #3,power (%)
-        else: row.append('N/A')  
-        row.append(item[2])                     #4,exposure
-        row.append(item[5])                     #5,filter pos
-        if item[4] < 700:
-            # convert the power to DAC value using laser calibration
-            laser = vis_laser_dataframe[vis_laser_dataframe['wav.'] == item[4]] # find the calibration data for the chosen wavelength
-            v = percent_to_16_bit(item[1], laser['minVal'].values[0], laser['maxVal'].values[0])
-            row.append(laser['Ach'].values[0])  #6,Ach number
-            row.append(laser['Dch'].values[0])  #7,Dch number
-            row.append(v)                       #8,DAC value
-        else:
-            row.append('N/A')                   #6,Ach number
-            row.append('N/A')                   #7,Dch number
-            row.append('N/A')                   #8,DAC value   
+        if item[4] < 700: 
+            row.append(item[1])                 #3,power (%)
+        else: 
             multi_photon = True                 # MaiTai in use, turn on multiphoton mode
             if first_MT_wav == 0: first_MT_wav = item[4] 
-                    
+            row.append('N/A')  
+        row.append(item[2])                     #4,exposure
+        row.append(item[5])                     #5,filter pos
+        
         channel_name = "C{:01d} - {}".format(row[0],row[1])
-        row.append(channel_name)              #9,channel name
-        row.append(np.zeros((hsize, vsize), dtype=np.uint16)) #10, background image (blank by default)
+        row.append(channel_name)              #6,channel name
+        row.append(np.zeros((hsize, vsize), dtype=np.uint16)) #7, background image (blank by default, later updated with real bg image)
         channels.append(row)
         
         if(verbose): print(row[:-1]) # print out channel vital info (not directory)
@@ -569,7 +611,7 @@ for p, position in enumerate(position_list):
     p_folder = "{}/P{:02d}".format(folder, p)
     os.makedirs(p_folder)
     for channel in channels:
-        c_folder = "{}/{}".format(p_folder, channel[9]) # channel name
+        c_folder = "{}/{}".format(p_folder, channel[6])
         os.makedirs(c_folder)
 
 # =============================================================================
@@ -609,7 +651,8 @@ with open(r"%s/metadata.txt" %(folder), "w") as file: # populate metadata file
         file.write("\tCamera line exposure:\t%s\n" %(line_exposure))
         file.write("\tLaser:\t\t\t%snm\n" %(channel[2]))
         file.write("\tLaser power:\t\t%s" %(channel[3]) + "(%)\n")
-        file.write("\tLaser DAC value:\t%s\n" %(channel[8]))
+        current, est_power = estimate_laser_power(channel[2], channel[3])
+        file.write("\tEstimated sample power:\t%s\n" %(est_power))
         file.write("\tFilter position:\t%s\n" %(channel[5]))
         file.write("\tFilter name:\t\t%s\n" %(filter_names[channel[5]-1]))
         file.write("\tChannel name:\t\t%s\n" %(channel[9]))
@@ -659,19 +702,18 @@ except Exception as e:
 # VIS LASER BANK
 if(verbose):print('connecting hardware: ', 'vis laser')
 try:
-    devices = ul.get_daq_device_inventory(InterfaceType.ANY)
-    ul.create_daq_device(board_num, devices[0])
-    daq_dev_info = DaqDeviceInfo(board_num)
-    # setup analog
-    ao_info = daq_dev_info.get_ao_info()
-    ao_range = ao_info.supported_ranges[0]
-    # setup digital
-    dio_info = daq_dev_info.get_dio_info()
-    port = next((port for port in dio_info.port_info if port.supports_output),None)
-    ul.d_config_port(0,port.type, DigitalIODirection.OUT)
+    VIS = serial.Serial(port=Vis_COM, baudrate=115200, timeout=0.2)
     shutter() # turn off all visible lasers
     con_laser = True
     print("connected visible lasers")
+    l = "wavelengths enabled: "
+    for channel in channels:
+        calib       = laser_calibration[channel[2]]
+        index       = calib["index"]
+        VIS.write(f"L{index}E".encode())
+        l = f" {l} {calib['wavelength']},"
+    
+    if(verbose):print(l)
     log_append("Visible lasers connection")
 except Exception as e: 
     log_append("Visible Laser connection error")
@@ -712,7 +754,6 @@ except Exception as e:
 if do_multi_positon == False:
     position_list = [(get_position(axis='x'),get_position(axis='y'),get_position(axis='z'))] # use current stage position as the only position
 
-
 # CAMERA
 if(verbose):print('connecting hardware: ', 'camera')
 try:
@@ -727,7 +768,7 @@ except Exception as e:
 
 
 # channels data format:     0: channel number, 1: name, 2: wavelength, 3: power , 4: exp, 5: filter, 
-#                           6: laserAnalog, 7: laserDigital, 8: laserDAC, 9: channel name, 10: BG image
+#                           6: laserAnalog, 7: BG image
 # =============================================================================
 # Background image collection
 # =============================================================================
@@ -768,7 +809,7 @@ if bg_images:
             print("___BG_______ z=%s, frame capture time: %03f (ms)__________" %(z,(time.time() - t0)*1000.0)) 
             
     bg_aggregate = bg_aggregate / n_frames
-    channel[10] = bg_aggregate    
+    channel[7] = bg_aggregate    
     DIL.write(bytes("/musical.0;\r", codec))
 else:
     auto_correction = False
@@ -852,6 +893,7 @@ for t in range(nTs):
             cam_settings(line_interval, line_exposure, bin_= binning, trigger='hardware')
             CAM.setup_acquisition(mode="sequence", nframes = nZ)
             
+            # TODO - test if set triggers is needed here or below
             set_stage_triggers_stack(sZ)
             get_stage_triggers()
             
@@ -880,8 +922,8 @@ for t in range(nTs):
             
         # turn on visible laser (or tune the maitai)
             if channel[2] < 700:                        # visible
-                if(verbose):print('laser on: ', channel[2], channel[3])
-                set_laser_power(channel[6], channel[7], channel[8]) 
+                if(verbose):print(f'laser set: {channel[2]}nm, {channel[3]}%')
+                set_laser_power(channel[2], channel[3]) # not actually on, but enabled, TTL from DIL will control on.off with precision timing
                 clear_DIL_buffer()
             if multi_photon and channel[2] > 700:        # MaiTai
                 print('\t\twaiting for MaiTai to tune')    
@@ -902,7 +944,7 @@ for t in range(nTs):
         # setup the DIL controller  
             if(verbose):print('start DIL: ', channel[4])  
             DIL.write(bytes("/stop;\r" , codec))
-            DIL.write(bytes("/stack.%s.%s;\r" %(int(channel[4]),nZ), codec))
+            DIL.write(bytes("/stack.%s.%s.%s;\r" %(int(channel[4]),nZ,channel[2]), codec))
             if musical: DIL.write(bytes("/musical.1;\r", codec))
             else: DIL.write(bytes("/musical.0;\r", codec))
             
@@ -923,6 +965,7 @@ for t in range(nTs):
         # turn off laser or close shutter 
             if channel[2] < 700:                         # visible
                 set_laser_power(channel[6], channel[7], 0)  
+        # shutter MaiTai
             if multi_photon and channel[2] > 700:        # MaiTai 
                 close_shutter()
         

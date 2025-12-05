@@ -53,7 +53,7 @@ position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
 # =============================================================================
 # TIMELAPSE SETTINGS
 # =============================================================================
-timelapse = True
+timelapse = False
 time_loop_interval  = 300 #(s)
 nTs = 100
 
@@ -63,30 +63,30 @@ nTs = 100
 musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
-_405        =  [1,         100,        500,         'Hoechst',                  405,         1]
+_405        =  [0,         100,        500,         'Hoechst',                  405,         1]
 _488        =  [1,         100,        500,         'SMA_alexa-488',            488,         2]
 _520        =  [1,         100,        500,         'MUC5AC_alexa-568',         520,         3]
-_638        =  [1,         100,        500,         '660nm',                    638,         4]
+_638        =  [0,         100,        500,         '638nm',                    638,         4]
 _MaiTai1    =  [0,         10,         500,         '730_2P_NADH',              730,         4]
 _MaiTai2    =  [0,         10,         500,         '875_2P_FAD',               875,         5]
 _scatter    =  [0,         4,          10,          'scatter',                  488,         6]
 
 lasers = [_405,_488,_520,_638,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 20       # Number of slices
-sZ          = 2.0     # slice separation (micrometers)
+nZ          = 10       # Number of slices
+sZ          = 20.0     # slice separation (micrometers)
 
-# experiment name
-name        = "Test_new_laser"
+
+name        = "Test_new_laser"          # experiment name
 
 # beams in use
-left_beam = True
+left_beam       = True
 right_beam = True
 
 root_location = r"D:/Light_Sheet_Images/Data/"
 verbose = False     #for debugging
 
-bg_images = True           # Capture n_bg_images Background images for each channel, store to folder
+bg_images = False           # Capture n_bg_images Background images for each channel, store to folder
                             # Average the images and store the result in the dataframe for each channel
                             # Use BG image instead of blank frame when frames are missed
 auto_correction = True      # if True: Apply BG subtraction to acquired images automatically
@@ -106,7 +106,7 @@ filter_names = [
                 ]
 
 # ================ Don't Edit often =================================================
-firmware_compatability = 3.1
+firmware_compatability = "3.1"
 
 GO_COM              = 'COM7'
 DIL_COM             = 'COM6'
@@ -287,8 +287,8 @@ def frame_grab(t, p, channel, z, background = False, auto_bg_sub = False):
         frame = frame - channel[7]   # subtract background image
         frame = np.clip(frame, 0, None).astype(np.uint16)
         
-    if background:  imageio.imwrite("{}/background/{}/bg{:02d}.tif".format(folder, channel[9], z), frame) 
-    else:           imageio.imwrite("{}\\P{:02d}\\{}\\t{:04d}_z{:04d}.tif".format(folder,p,channel[9],t,z), frame)
+    if background:  imageio.imwrite("{}/background/{}/bg{:02d}.tif".format(folder, channel[6], z), frame) 
+    else:           imageio.imwrite("{}\\P{:02d}\\{}\\t{:04d}_z{:04d}.tif".format(folder,p,channel[6],t,z), frame)
     clear_DIL_buffer()
     return True, frame
 
@@ -398,8 +398,10 @@ def load_laser_calibration():
             try:
                 wl = int(row["wavelength"])
                 calibration[wl] = {
-                    "min_current": float(row["min_current"]),
-                    "max_current": float(row["max_current"]),
+                    "wavelength": int(row["wavelength"]),
+                    "index": int(row["index"]),
+                    "min_current": int(row["min_current"]),
+                    "max_current": int(row["max_current"]),
                     "max_power_left_mw": float(row["max_power_left_mw"]),
                     "max_power_right_mw": float(row["max_power_right_mw"]),
                 }
@@ -548,8 +550,10 @@ def close_all_coms(exception=None):
         VIS.write("L2D".encode())
         VIS.write("L3D".encode())
         VIS.write("L4D".encode())
-        VIS.close()
+        VIS.write("e 0".encode()) # turn off TEC (disable emmission)
         print("shuttered and disabled visible lasers")
+        VIS.close()
+        print("closed matchbox laser")
     if con_filter:  
         Filter.close()
         print("closed filter wheel")
@@ -658,7 +662,7 @@ with open(r"%s/metadata.txt" %(folder), "w") as file: # populate metadata file
         file.write("\tEstimated sample power:\t%s\n" %(est_power))
         file.write("\tFilter position:\t%s\n" %(channel[5]))
         file.write("\tFilter name:\t\t%s\n" %(filter_names[channel[5]-1]))
-        file.write("\tChannel name:\t\t%s\n" %(channel[9]))
+        file.write("\tChannel name:\t\t%s\n" %(channel[6]))
     file.write("\nExperiment Log:\n")   
      
 # =============================================================================
@@ -702,10 +706,14 @@ try:
     # test for compatible firmware version
     DIL.write(bytes("/hello;\r" , codec))
     r = DIL.readline().decode()
+    r = DIL.readline().decode()
     log_append("DIL connection: {r}")
     if not firmware_compatability in r:
-        print("{firmware_compatability} not in {r}")
+        print(f"{firmware_compatability} not in {r}")
         print("WARNING: FIRMWARE COMPATABILITY!")
+        
+    shutter() # disable all visible lasers via TTL
+    
 except Exception as e: 
     log_append("DIL connection error")
     close_all_coms(exception = e)
@@ -714,17 +722,19 @@ except Exception as e:
 if(verbose):print('connecting hardware: ', 'vis laser')
 try:
     VIS = serial.Serial(port=Vis_COM, baudrate=115200, timeout=0.2)
-    shutter() # turn off all visible lasers
+    shutter() # disable all visible lasers via TTL
     con_laser = True
     print("connected visible lasers")
-    l = "wavelengths enabled: "
-    for channel in channels:
-        calib       = laser_calibration[channel[2]]
-        index       = calib["index"]
-        VIS.write(f"L{index}E".encode())
-        l = f" {l} {calib['wavelength']},"
     
-    if(verbose):print(l)
+    VIS.write("e 1".encode()) # turn on TEC (enable emmission)
+
+    for channel in channels: #setting laser emmissions for selected channels
+        calib       = laser_calibration[channel[2]]
+        print(calib)
+        index       = calib["index"]
+        print(f"L{index}E".encode())
+        VIS.write(f"L{index}E".encode())
+
     log_append("Visible lasers connection")
 except Exception as e: 
     log_append("Visible Laser connection error")
@@ -752,6 +762,7 @@ try:
     log_append("GO stage connection")
     # set speeds and accelerations
     for axis in ('x','y','z'):
+        if(verbose):print(f'setting {axis} speed and acceleration')
         set_stage_speed(axis, stage_speed, stage_ac_dc)
     # go to first position
     set_stage_triggers_move()  #turn off stage triggers
@@ -792,7 +803,7 @@ if bg_images:
         bg_aggregate = np.zeros((hsize, vsize), dtype=np.uint16) 
         n_frames = 0
         # make channel sub-folder
-        c_folder = "{}/background/{}".format(folder, channel[9]) # channel number
+        c_folder = "{}/background/{}".format(folder, channel[6]) # channel number
         os.makedirs(c_folder)
         # set up filter 
         print('collecting BG images for C=', channel[0], channel[1])

@@ -1,0 +1,13 @@
+{"attemptIndex":1,"timestamp":1763733180662,
+"r i":["Firmware for MatchBox 2 v1.8.81","Laser S/N:909083",
+	"Laser model:40A-48A-52A-64A-13-AT-NF","149h 42 min.","21 times"],
+"r r":["#Readings: 25.002 22.294 28.040 0.0mA 0% -12% Wrm 0% 11.98V "],
+"r s":["#Settings: 1800 2500 0 255 nan 64000 Autostart:OFF 2 2510"],
+"r 4":["65535"],"r 6":["65535"],
+"P?":["<0>"],
+"Ln?":["<638 520 488 405 >"],
+"Le":["<1 1 1 1 1 >"],
+"Lr":["<0.00 0.00 0.00 0.00 mA>"],
+"Lc?":["<80 80 80 80>"],
+"Lm?":["<220 300 105 180>"],"success":true,"errors":["Error: Mismatched 3rd Results"],
+	"mbControllerVersion":"1.17.1"}

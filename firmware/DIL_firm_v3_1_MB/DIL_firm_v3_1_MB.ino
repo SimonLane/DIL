@@ -52,8 +52,8 @@ uint8_t cam_delay               = 0;        // trigger scanner this time after t
 const byte HALF_CLOCK_PERIOD    = 1;        // 2 uS of clock period 
 
 
-uint16_t g_enter_step           = 174;       // galvo step at which beam enters the camera FOV
-uint16_t g_exit_step            = 861;      // galvo step at which beam leaves the camera FOV
+uint16_t g_enter_step           = 138;       // galvo step at which beam enters the camera FOV
+uint16_t g_exit_step            = 851;      // galvo step at which beam leaves the camera FOV
 uint16_t g_steps_per_FOV        = (g_exit_step - g_enter_step); // number of steps on the galvo that corresponds to the full FOV of the camera
 
 float temp_offset = 0.0;

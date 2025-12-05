@@ -1,4 +1,4 @@
-wavelength,number,min_current,max_current,max_power_left_mw,max_power_right_mw
+wavelength,index,min_current,max_current,max_power_left_mw,max_power_right_mw
 405,4,22,114,17,15
 488,3,16,81,11,9
 520,2,32,160,12,8

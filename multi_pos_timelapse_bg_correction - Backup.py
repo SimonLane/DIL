@@ -29,61 +29,62 @@ Created on Fri Mar 27 2025
 # MULTIPOSITION SETTINGS
 # =============================================================================
 
-do_multi_positon = True     # True: load in multiple positions
+do_multi_positon = True     # True: load in multiple positions #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                             # False: use the current stage position
                             
-position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
+position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS) #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 
-      #(511, -1783, -1968),
+    (203.586, 2143.568, 2870.080),
+   #(251.558, 3191.166, 2810.134)
+   # (299.570, 4924.022, 2750.574) 
       #(651.406, 2243.748, -1568.036),
-    (431.238, -4067.832, 3147), #P0
-   # (551.174, 2753.946, 3151.026), #P1
-   # (250.752, 3734.990, 3320.070) #P2
-    
-    #(481.368, 3557.150, 3019.818), 
-    #(416.956, 4544.694, 2995.462), #P0_1
-    #(512.912, 5512.458, 2983.384), #P1_1
-    #(507.722, 6393.912, 2986.186) #P2_1
-    
+   # (206.328, -4612.732, 3847.498), #P0
+   # (191.168, -3637.632, 3757.664), #P1
+   # (180.312, -2620.070, 3716.926), #P2
+   # (131.968, 235.208, 3440.894), #P3
+   # (58.114, 1170.858, 3408.652), #P4
+   # (103.828, 2125.776, 3352.840), #P5
+   # (94.408, 3102.440, 3257.046), #P6
+   # (56.918, 4038.218, 3260.814) #P7
    ]
 
 # =============================================================================
 # TIMELAPSE SETTINGS
 # =============================================================================
-timelapse = True
-time_loop_interval  = 300 #(s)
-nTs = 100
+timelapse = True #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+time_loop_interval  = 120 #(s) #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+nTs = 500 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 # =============================================================================
 # CHANNELS SETTINGS
 # =============================================================================
-musical = False
+musical = False #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
-_405        =  [0,         100,        250,      '405_Hoechst33342',           405,             1]
-_488        =  [1,         100,        1000,                       '488_500-650',          488,             5]
-_561        =  [0,         100,        10,        '561_scatter',               561,             2]
-_660        =  [0,         100,        450,       '6_L',                       660,              6]
-_MaiTai1    =  [0,         10,         250,                    'NADH',                   730,             4]
-_MaiTai2    =  [0,         10,         250,                   'FAD',                     875,             5]
-_scatter    =  [0,         4,          10,                    '488_scatter',             488,             6]
+_405        =  [0,         100,        500,         'Hoechst-33342',                  405,         1] #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+_488        =  [0,         100,        50,         '200nm_Beads_488',            488,         2]
+_520        =  [0,         100,        500,         'MUC5AC_alexa-568',         520,         3]
+_638        =  [0,         100,        500,         '638nm',                    638,         4]
+_MaiTai1    =  [1,         10,         300,         '730nm_NADH',              730,         4]
+_MaiTai2    =  [1,         10,         1000,         '875nm_FAD',               875,         5]
+_scatter    =  [0,         4,          10,          'scatter',                  488,         6]
 
-lasers = [_405,_488,_561,_660,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
+lasers = [_405,_488,_520,_638,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 311     # Number of slices
-sZ          = 2.0    # slice separation (micrometers)
+nZ          = 10       # Number of slices #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+sZ          = 5.0     # slice separation (micrometers) #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-# experiment name
-name        = "Well_Bleaching" #"PSF_Vis_Both_MT_L_0_50nm"
-root_location = r"D:/Light_Sheet_Images/Data/"
+
+name        = "LMI_03_xyzt"          # experiment name #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+root_location = r"D:/Light_Sheet_Images/Data/" 
 verbose = False     #for debugging
 
-bg_images = True           # Capture n_bg_images Background images for each channel, store to folder
+bg_images = True           # Capture n_bg_images Background images for each channel, store to folder #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
                             # Average the images and store the result in the dataframe for each channel
                             # Use BG image instead of blank frame when frames are missed
-auto_correction = True      # if True: Apply BG subtraction to acquired images automatically
-n_bg_images = 10
+auto_correction = False      # if True: Apply BG subtraction to acquired images automatically #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+n_bg_images = 10 #<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 preview = True              # Display the center image in each stack to the console
 
 # ================ Filter Wheel =================================================
@@ -103,7 +104,7 @@ GO_COM              = 'COM7'
 DIL_COM             = 'COM6'
 Filter_COM          = 'COM5'
 Vis_COM             = 'COM9'
-MaiTai_COM          = 'COM13'
+MaiTai_COM          = 'COM15'
 codec               = 'utf8'
 board_num           = 0             # Visible laser board number
 calibrations = "Calibration files" # local folder containing calibration files (lasers and filters)
@@ -625,7 +626,7 @@ with open(r"%s/metadata.txt" %(folder), "w") as file: # populate metadata file
 if multi_photon:
     if(verbose):print('connecting hardware: ', 'MaiTai')
     try:
-        maitai = serial.Serial(port='COM13', baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5, xonxoff=0, rtscts=0)
+        maitai = serial.Serial(port='COM15', baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5, xonxoff=0, rtscts=0)
         con_MaiTai = True
         print("connected to MaiTai") 
         log_append("MaiTai connection")

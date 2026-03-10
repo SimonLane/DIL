@@ -105,14 +105,14 @@ def MaiTai_warm():
         return False, float(temp[:-1])
     
     
-maitai =  serial.Serial(port='COM11', baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5, xonxoff=0, rtscts=0)
+maitai =  serial.Serial(port='COM15', baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=0.5, xonxoff=0, rtscts=0)
 sleep(0.5)
 
 clear_buffer()
 
 print('MaiTai warm?:', MaiTai_warm())
 
-set_wavelength(800)
+set_wavelength(730)
 while True:
     setpoint,actual,power,stable = MaiTai_readout()
     print('setpoint: {}, actual: {}, power: {}, stable: {}'.format(setpoint,actual,power,stable))
@@ -122,7 +122,7 @@ while True:
 open_shutter()
 wait_for_shutter(1)
 
-sleep(2)
+sleep(1)
 close_shutter()
 wait_for_shutter(0) 
     

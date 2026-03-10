@@ -36,23 +36,22 @@ do_multi_positon = True     # True: load in multiple positions
 position_list = [           # FORMAT: COMMA SEPARATED (X, Y, Z) (IN MICRONS)
 
 
-      #(511, -1783, -1968),
+   (214, -2631, 3885)
       #(651.406, 2243.748, -1568.036),
-    (431.238, -4067.832, 3147), #P0
-   # (551.174, 2753.946, 3151.026), #P1
-   # (250.752, 3734.990, 3320.070) #P2
-    
-    #(481.368, 3557.150, 3019.818), 
-    #(416.956, 4544.694, 2995.462), #P0_1
-    #(512.912, 5512.458, 2983.384), #P1_1
-    #(507.722, 6393.912, 2986.186) #P2_1
-    
+   # (206.328, -4612.732, 3847.498), #P0
+   # (191.168, -3637.632, 3757.664), #P1
+   # (180.312, -2620.070, 3716.926), #P2
+   # (131.968, 235.208, 3440.894), #P3
+   # (58.114, 1170.858, 3408.652), #P4
+   # (103.828, 2125.776, 3352.840), #P5
+   # (94.408, 3102.440, 3257.046), #P6
+   # (56.918, 4038.218, 3260.814) #P7
    ]
 
 # =============================================================================
 # TIMELAPSE SETTINGS
 # =============================================================================
-timelapse = True
+timelapse = False
 time_loop_interval  = 300 #(s)
 nTs = 100
 
@@ -62,33 +61,33 @@ nTs = 100
 musical = False
 #  channels
 #               on/off     power(%)    exp(ms)     name                     wavelength   filter positon
-_405        =  [1,         100,        500,         'Hoechst',                  405,         1]
-_488        =  [1,         100,        500,         'SMA_alexa-488',            488,         2]
-_520        =  [1,         100,        500,         'MUC5AC_alexa-568',         520,         3]
-_638        =  [1,         100,        500,         '660nm',                    638,         4]
-_MaiTai1    =  [0,         10,         500,         '730_2P_NADH',              730,         4]
+_405        =  [0,         100,        500,         'Hoechst-33342',                  405,         1]
+_488        =  [0,         100,        50,         '200nm_Beads_488',            488,         2]
+_520        =  [0,         100,        500,         'MUC5AC_alexa-568',         520,         3]
+_638        =  [0,         100,        500,         '638nm',                    638,         4]
+_MaiTai1    =  [1,         10,         200,         '200nm_Beads_800_2P',              800,         2]
 _MaiTai2    =  [0,         10,         500,         '875_2P_FAD',               875,         5]
 _scatter    =  [0,         4,          10,          'scatter',                  488,         6]
 
 lasers = [_405,_488,_520,_638,_MaiTai1,_MaiTai2,_scatter] # change order here to change channel order
 
-nZ          = 20       # Number of slices
-sZ          = 2.0     # slice separation (micrometers)
+nZ          = 10       # Number of slices
+sZ          = 0.05     # slice separation (micrometers)
 
-# experiment name
-name        = "Test_new_laser"
+
+name        = "MT_Test"          # experiment name
 
 # beams in use
 left_beam = True
-right_beam = True
+right_beam = False
 
 root_location = r"D:/Light_Sheet_Images/Data/"
 verbose = False     #for debugging
 do_hot_pixel_correction = False
-bg_images = True           # Capture n_bg_images Background images for each channel, store to folder
+bg_images = False           # Capture n_bg_images Background images for each channel, store to folder
                             # Average the images and store the result in the dataframe for each channel
                             # Use BG image instead of blank frame when frames are missed
-auto_correction = True      # if True: Apply BG subtraction to acquired images automatically
+auto_correction = False      # if True: Apply BG subtraction to acquired images automatically
 n_bg_images = 10
 preview = True              # Display the center image in each stack to the console
 
